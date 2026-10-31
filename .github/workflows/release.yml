@@ -12,7 +12,12 @@ jobs:
     name: Build and publish release
     runs-on: ubuntu-latest
     steps:
+      # fetch-tags keeps the annotated tag object available so the release
+      # notes are read from the tag itself — without it, `git tag --format=
+      # %(contents)` degrades to the pointed-at commit's message (observed on v1.0.0).
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4

@@ -108,5 +108,6 @@ precedence is decided by `versionCode` alone.
 | Release workflow fails at lint/tests           | Merge-blocked-quality code on the tag — fix on `main`, re-tag a new commit |
 | Fails decrypting / signing                     | Secrets missing or stale — re-check `gh secret list` and re-upload the keystore |
 | Workflow skipped entirely                      | The tag was not on `main`'s history or the tag name doesn't match `v*` |
+| Release body shows the commit message instead of the curated tag notes | The CI checkout skipped the annotated tag object — fixed by `fetch-tags: true` on the Release job's checkout (this happened on v1.0.0; repair a live release with `gh release edit vX.Y.Z --notes-file`) |
 | "App not installed" when sideloading an update | Signature mismatch — uninstall the old build first, or (correctly) release with the same key |
 | Same version published twice                   | Re-pushed an existing tag — delete the GitHub release + tag, address CI, then re-tag from the fixed commit |
