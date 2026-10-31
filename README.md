@@ -7,6 +7,18 @@ device only — no accounts, no calendar permissions, no sync.
 
 Status: early development.
 
+## Development
+
+Build and test from the command line (JDK 17 required):
+
+```
+./gradlew :app:assembleDebug :app:testDebugUnitTest
+```
+
+CI runs lint, unit tests, and debug + release assembly on every push and PR
+to `main`. Pushing a `v*` tag triggers the release pipeline, which rebuilds,
+signs, and attaches the APK to a GitHub release.
+
 ## License
 
 Copyright (C) 2026 sumon317
