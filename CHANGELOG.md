@@ -4,7 +4,7 @@ All notable changes to calc are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning is
 semver-ish, and every entry corresponds to a GitHub release.
 
-## [Unreleased]
+## [1.1.0] — 2026-10-31
 
 ### Added
 
