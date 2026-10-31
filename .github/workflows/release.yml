@@ -12,12 +12,14 @@ jobs:
     name: Build and publish release
     runs-on: ubuntu-latest
     steps:
-      # fetch-tags keeps the annotated tag object available so the release
-      # notes are read from the tag itself — without it, `git tag --format=
-      # %(contents)` degrades to the pointed-at commit's message (observed on v1.0.0).
+      # Default checkout fetches the tag-push event as `+<commit-sha>:refs/tags/<tag>`
+      # with --no-tags, so HEAD lands on the commit — but that also leaves the
+      # local tag as a pseudo-tag pointing at the commit, so upload steps can
+      # misread it. (fetch-tags: true was tried to bring the annotated object
+      # in, but it removes git's --no-tags guard, and the shallow fetch then
+      # crashes on annotated tags: "Cannot fetch both <sha> and refs/tags/"
+      # — observed on the first v1.1.0 release run.)
       - uses: actions/checkout@v4
-        with:
-          fetch-tags: true
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
@@ -50,6 +52,14 @@ jobs:
 
       - name: Verify (lint, unit tests) and build release APK
         run: ./gradlew :app:lintRelease :app:testDebugUnitTest :app:assembleRelease
+
+      # Re-fetch the tag ref onto itself: checkout left the local tag aimed at
+      # the commit (pseudo-tag), which degrades `git tag --format=%(contents)`
+      # to the pointed-at commit's message — the exact notes bug seen on
+      # v1.0.0. This forced overwrite installs the real annotated tag object,
+      # restoring the curated notes. (Verified against a scratch repository.)
+      - name: Fetch release annotation
+        run: git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
 
       - name: Publish GitHub release
         env:
