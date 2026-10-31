@@ -5,7 +5,7 @@ A simple, local-only calendar app for Android.
 Built with Kotlin, Jetpack Compose (Material 3) and Room. Events live on the
 device only — no accounts, no calendar permissions, no sync.
 
-Status: early development.
+Status: v1.0.0 released — see the [releases page](https://github.com/sumon317/calc/releases), [CHANGELOG.md](CHANGELOG.md) and the release runbook in [RELEASING.md](RELEASING.md).
 
 ## Development
 
