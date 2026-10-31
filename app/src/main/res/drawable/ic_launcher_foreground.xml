@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Calendar body (white, inside the 66dp safe zone) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,34 a8,8 0 0 1 8,-8 h44 a8,8 0 0 1 8,8 v44 a8,8 0 0 1 -8,8 h-44 a8,8 0 0 1 -8,-8 z" />
+
+    <!-- Title band (knockout in background color) -->
+    <path
+        android:fillColor="#4458C7"
+        android:pathData="M24,42 h60 v5 h-60 z" />
+
+    <!-- Binder pins -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,21 h6 v10 h-6 z M66,21 h6 v10 h-6 z" />
+
+    <!-- Event dots -->
+    <path
+        android:fillColor="#4458C7"
+        android:pathData="M40,62 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0 z M54,62 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0 z M68,62 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0 z" />
+</vector>
