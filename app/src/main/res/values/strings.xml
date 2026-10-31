@@ -5,4 +5,14 @@
     <string name="next_month">Next month</string>
     <string name="all_day">All day</string>
     <string name="no_events_hint">No events — tap + to add one.</string>
+    <string name="add_event">Add event</string>
+    <string name="edit_event">Edit event</string>
+    <string name="title_label">Title</string>
+    <string name="date_label">Date: %1$s</string>
+    <string name="add_time">Add time</string>
+    <string name="pick_time">Pick a time</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="ok">OK</string>
 </resources>

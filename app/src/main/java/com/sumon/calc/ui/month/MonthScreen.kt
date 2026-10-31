@@ -10,20 +10,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,32 +53,86 @@ fun MonthScreen(viewModel: CalendarViewModel) {
     val weekdayNames = remember(weekStart) { weekdayLabels(weekStart, Locale.getDefault()) }
     val eventDays = remember(state.monthEvents) { state.monthEvents.map { it.date }.toSet() }
     val dateFormatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
+    val timeFormatter = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT) }
+    val context = LocalContext.current
+    val is24Hour = remember(context) { android.text.format.DateFormat.is24HourFormat(context) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 4.dp),
-    ) {
-        MonthHeader(
-            month = state.month,
-            onPrevious = viewModel::previousMonth,
-            onNext = viewModel::nextMonth,
-        )
-        WeekdayLabelRow(weekdayNames)
-        MonthGrid(
-            cells = cells,
-            selectedDay = state.selectedDay,
-            today = today,
-            eventDays = eventDays,
-            onSelectDay = viewModel::select,
-        )
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-        DaySection(
-            date = state.selectedDay,
-            events = state.dayEvents,
+    var showAdd by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<Event?>(null) }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAdd = true }) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = stringResource(R.string.add_event),
+                )
+            }
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
+                .padding(horizontal = 4.dp),
+        ) {
+            MonthHeader(
+                month = state.month,
+                onPrevious = viewModel::previousMonth,
+                onNext = viewModel::nextMonth,
+            )
+            WeekdayLabelRow(weekdayNames)
+            MonthGrid(
+                cells = cells,
+                selectedDay = state.selectedDay,
+                today = today,
+                eventDays = eventDays,
+                onSelectDay = viewModel::select,
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            DaySection(
+                date = state.selectedDay,
+                events = state.dayEvents,
+                dateFormatter = dateFormatter,
+                timeFormatter = timeFormatter,
+                onEventClick = { editing = it },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+
+    if (showAdd) {
+        AddEventDialog(
+            initialDate = state.selectedDay,
+            is24Hour = is24Hour,
             dateFormatter = dateFormatter,
-            modifier = Modifier.weight(1f),
+            timeFormatter = timeFormatter,
+            onDismiss = { showAdd = false },
+            onSave = { title, date, time ->
+                viewModel.save(Event(title = title, date = date, time = time))
+                showAdd = false
+            },
+        )
+    }
+
+    editing?.let { target ->
+        AddEventDialog(
+            initialEvent = target,
+            initialDate = target.date,
+            is24Hour = is24Hour,
+            dateFormatter = dateFormatter,
+            timeFormatter = timeFormatter,
+            onDismiss = { editing = null },
+            onSave = { title, date, time ->
+                viewModel.save(Event(id = target.id, title = title, date = date, time = time))
+                editing = null
+            },
+            onDelete = {
+                viewModel.delete(target.id)
+                editing = null
+            },
         )
     }
 }
@@ -133,6 +193,8 @@ private fun DaySection(
     date: LocalDate,
     events: List<Event>,
     dateFormatter: DateTimeFormatter,
+    timeFormatter: DateTimeFormatter,
+    onEventClick: (Event) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -151,7 +213,11 @@ private fun DaySection(
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(events, key = { it.id }) { event ->
-                    EventRow(event)
+                    EventRow(
+                        event = event,
+                        timeFormatter = timeFormatter,
+                        onClick = { onEventClick(event) },
+                    )
                 }
             }
         }
@@ -160,8 +226,12 @@ private fun DaySection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EventRow(event: Event) {
-    Card(onClick = { /* editing arrives in the next milestone */ }, modifier = Modifier.fillMaxWidth()) {
+private fun EventRow(
+    event: Event,
+    timeFormatter: DateTimeFormatter,
+    onClick: () -> Unit,
+) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = event.title,
@@ -170,8 +240,7 @@ private fun EventRow(event: Event) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = event.time?.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
-                    ?: stringResource(R.string.all_day),
+                text = event.time?.format(timeFormatter) ?: stringResource(R.string.all_day),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
