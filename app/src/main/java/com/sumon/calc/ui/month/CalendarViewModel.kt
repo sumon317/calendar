@@ -46,6 +46,16 @@ class CalendarViewModel(private val repository: EventRepository) : ViewModel() {
 
     fun nextMonth() = month.update { it.plusMonths(1) }
 
+    fun selectMonth(monthValue: Int) = month.update { it.withMonth(monthValue) }
+
+    fun selectYear(year: Int) = month.update { it.withYear(year) }
+
+    fun goToToday() {
+        val today = LocalDate.now()
+        selectedDay.value = today
+        month.update { YearMonth.from(today) }
+    }
+
     fun select(day: LocalDate) {
         selectedDay.value = day
     }

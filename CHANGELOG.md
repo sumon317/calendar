@@ -4,6 +4,17 @@ All notable changes to calc are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning is
 semver-ish, and every entry corresponds to a GitHub release.
 
+## [Unreleased]
+
+### Added
+
+- Outlined ring marking "today" on the grid, so the current date is
+  identifiable at a glance even when another day is selected.
+- The month name and year in the header are now separately tappable and
+  open scroll-and-tap lists (months of the shown year; years 1900–2100).
+- A "Today" button that appears whenever the calendar is not showing
+  today; tapping it returns to today's month and selects today's date.
+
 ## [1.0.0] — 2026-10-31
 
 First public release: a simple, local-only calendar app for Android.

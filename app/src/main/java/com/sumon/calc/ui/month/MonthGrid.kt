@@ -1,6 +1,7 @@
 package com.sumon.calc.ui.month
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -107,6 +108,15 @@ private fun DayCell(
         modifier = modifier
             .aspectRatio(1f)
             .clip(CircleShape)
+            // Today is marked with a primary ring so the current date is
+            // identifiable at a glance, even when another day is selected.
+            .then(
+                if (isToday && !isSelected) {
+                    Modifier.border(width = 2.dp, color = colorScheme.primary, shape = CircleShape)
+                } else {
+                    Modifier
+                },
+            )
             .background(circleColor)
             .clickable(enabled = date != null) { date?.let(onSelectDay) },
         contentAlignment = Alignment.Center,

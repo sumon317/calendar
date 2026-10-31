@@ -11,10 +11,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -22,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +44,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
 
@@ -59,15 +63,33 @@ fun MonthScreen(viewModel: CalendarViewModel) {
 
     var showAdd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Event?>(null) }
+    var pickingMonth by remember { mutableStateOf(false) }
+    var pickingYear by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAdd = true }) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.add_event),
-                )
+            // "Today" sits above the add-FAB, but only while the calendar is
+            // somewhere else — on today it vanishes to keep the corner clean.
+            val notOnToday =
+                state.selectedDay != today || state.month != YearMonth.from(today)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (notOnToday) {
+                    ExtendedFloatingActionButton(
+                        onClick = viewModel::goToToday,
+                    ) {
+                        Text(stringResource(R.string.today))
+                    }
+                }
+                FloatingActionButton(onClick = { showAdd = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.add_event),
+                    )
+                }
             }
         },
     ) { innerPadding ->
@@ -82,6 +104,8 @@ fun MonthScreen(viewModel: CalendarViewModel) {
                 month = state.month,
                 onPrevious = viewModel::previousMonth,
                 onNext = viewModel::nextMonth,
+                onSelectMonth = { pickingMonth = true },
+                onSelectYear = { pickingYear = true },
             )
             WeekdayLabelRow(weekdayNames)
             MonthGrid(
@@ -135,6 +159,28 @@ fun MonthScreen(viewModel: CalendarViewModel) {
             },
         )
     }
+
+    if (pickingMonth) {
+        MonthPickerDialog(
+            selectedMonth = state.month.monthValue,
+            onSelect = { monthValue ->
+                viewModel.selectMonth(monthValue)
+                pickingMonth = false
+            },
+            onDismiss = { pickingMonth = false },
+        )
+    }
+
+    if (pickingYear) {
+        YearPickerDialog(
+            selectedYear = state.month.year,
+            onSelect = { year ->
+                viewModel.selectYear(year)
+                pickingYear = false
+            },
+            onDismiss = { pickingYear = false },
+        )
+    }
 }
 
 @Composable
@@ -142,12 +188,13 @@ private fun MonthHeader(
     month: YearMonth,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onSelectMonth: () -> Unit,
+    onSelectYear: () -> Unit,
 ) {
-    val title = remember(month) {
-        month.format(
-            DateTimeFormatter.ofPattern("MMMM yyyy").withLocale(Locale.getDefault()),
-        )
+    val monthName = remember(month) {
+        month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
     }
+    val yearText = remember(month) { month.year.toString() }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -158,12 +205,34 @@ private fun MonthHeader(
                 contentDescription = stringResource(R.string.previous_month),
             )
         }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
+        Row(
             modifier = Modifier.weight(1f),
-        )
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onSelectMonth) {
+                Text(
+                    text = monthName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = stringResource(R.string.select_month),
+                )
+            }
+            TextButton(onClick = onSelectYear) {
+                Text(
+                    text = yearText,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = stringResource(R.string.select_year),
+                )
+            }
+        }
         IconButton(onClick = onNext) {
             Icon(
                 imageVector = Icons.Filled.KeyboardArrowRight,
