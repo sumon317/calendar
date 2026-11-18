@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -572,7 +574,16 @@ private fun CalendarsSection(
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .toggleable(
+                                value = cal.isEnabled,
+                                role = Role.Switch,
+                                onValueChange = { isChecked ->
+                                    onToggleCalendar(cal.id, isChecked)
+                                },
+                            ),
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
@@ -632,9 +643,7 @@ private fun CalendarsSection(
                             }
                             Switch(
                                 checked = cal.isEnabled,
-                                onCheckedChange = { isChecked ->
-                                    onToggleCalendar(cal.id, isChecked)
-                                },
+                                onCheckedChange = null,
                             )
                         }
                     }

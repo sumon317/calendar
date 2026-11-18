@@ -29,7 +29,8 @@ class CalendarViewModel(
     private val selectedDay = MutableStateFlow(LocalDate.now())
     private val hasPermission = MutableStateFlow(repository.hasPermissions())
     private val selectedCalendarId = MutableStateFlow<Long?>(null)
-    private val manualRefreshTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val disabledCalendarIds = MutableStateFlow(repository.getDisabledCalendarIds())
+    private val refreshTrigger = MutableStateFlow(0L)
 
     private val _themeMode = MutableStateFlow(repository.getThemeMode())
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
@@ -68,18 +69,20 @@ class CalendarViewModel(
     private fun observeCalendar() {
         viewModelScope.launch {
             // Re-run whenever permissions change, month/day change, calendar filter changes,
-            // or ContentObserver emits a change from this app or Google Calendar sync.
+            // enabled/disabled calendars change, ContentObserver emits, or manual refresh is triggered.
             val calendarChanges = repository.observeCalendarChanges()
-            val manualChanges = manualRefreshTrigger.onStart { emit(Unit) }
 
-            // combine() only has built-in overloads up to 5 flows; nest two calls.
-            val baseParams = combine(hasPermission, month, selectedDay, selectedCalendarId) {
-                permitted, currentMonth, currentDay, calFilter ->
-                CalendarQueryParameters(permitted, currentMonth, currentDay, calFilter)
-            }
+            val baseParams = combine(
+                hasPermission,
+                month,
+                selectedDay,
+                selectedCalendarId,
+                disabledCalendarIds,
+            ) { permitted, currentMonth, currentDay, calFilter, disabledIds ->
+                CalendarQueryParameters(permitted, currentMonth, currentDay, calFilter, disabledIds)
+            }.distinctUntilChanged()
 
-            combine(baseParams, calendarChanges, manualChanges) { params, _, _ -> params }
-                .distinctUntilChanged()
+            combine(baseParams, calendarChanges, refreshTrigger) { params, _, _ -> params }
                 .collect { params ->
                     if (!params.hasPermission) {
                         _uiState.update {
@@ -140,7 +143,7 @@ class CalendarViewModel(
 
     fun refresh() {
         checkPermissions()
-        manualRefreshTrigger.tryEmit(Unit)
+        refreshTrigger.update { it + 1 }
     }
 
     fun syncWithGoogle(account: Account? = null) = viewModelScope.launch {
@@ -190,18 +193,45 @@ class CalendarViewModel(
 
     fun toggleCalendarEnabled(calendarId: Long, isEnabled: Boolean) {
         repository.setCalendarEnabled(calendarId, isEnabled)
+        disabledCalendarIds.value = repository.getDisabledCalendarIds()
+        _uiState.update { current ->
+            val updated = current.calendars.map {
+                if (it.id == calendarId) it.copy(isEnabled = isEnabled) else it
+            }
+            val enabledIds = updated.filter { it.isEnabled }.map { it.id }.toSet()
+            val effectiveFilter = if (current.selectedCalendarId != null && current.selectedCalendarId in enabledIds) {
+                current.selectedCalendarId
+            } else null
+            current.copy(
+                calendars = updated,
+                selectedCalendarId = effectiveFilter,
+            )
+        }
         refresh()
     }
 
     fun enableAllCalendars() {
         val allCals = _uiState.value.calendars
         repository.setAllCalendarsEnabled(allCals, true)
+        disabledCalendarIds.value = emptySet()
+        _uiState.update { current ->
+            val updated = current.calendars.map { it.copy(isEnabled = true) }
+            current.copy(calendars = updated)
+        }
         refresh()
     }
 
     fun disableAllCalendars() {
         val allCals = _uiState.value.calendars
         repository.setAllCalendarsEnabled(allCals, false)
+        disabledCalendarIds.value = repository.getDisabledCalendarIds()
+        _uiState.update { current ->
+            val updated = current.calendars.map { it.copy(isEnabled = false) }
+            current.copy(
+                calendars = updated,
+                selectedCalendarId = null,
+            )
+        }
         refresh()
     }
 
@@ -226,6 +256,7 @@ private data class CalendarQueryParameters(
     val month: YearMonth,
     val selectedDay: LocalDate,
     val calendarFilter: Long?,
+    val disabledCalendarIds: Set<Long> = emptySet(),
 )
 
 data class CalendarUiState(
