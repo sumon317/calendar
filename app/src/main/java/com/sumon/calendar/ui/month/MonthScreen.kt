@@ -195,12 +195,18 @@ fun MonthScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+            val allCalendarsDisabled = remember(state.calendars) {
+                state.calendars.isNotEmpty() && state.calendars.none { it.isEnabled }
+            }
+
             // Day events view
             DaySection(
                 date = state.selectedDay,
                 events = state.dayEvents,
                 dateFormatter = dateFormatter,
                 timeFormatter = timeFormatter,
+                allCalendarsDisabled = allCalendarsDisabled,
+                onOpenSettings = onOpenSettings,
                 onEventClick = { event ->
                     viewModel.loadEventForEditing(event) { fullEvent ->
                         editing = fullEvent
@@ -212,12 +218,15 @@ fun MonthScreen(
     }
 
     if (showAdd) {
+        val enabledCalendars = remember(state.calendars) {
+            state.calendars.filter { it.isEnabled }.ifEmpty { state.calendars }
+        }
         AddEventDialog(
             initialDate = state.selectedDay,
             is24Hour = is24Hour,
             dateFormatter = dateFormatter,
             timeFormatter = timeFormatter,
-            availableCalendars = state.calendars,
+            availableCalendars = enabledCalendars,
             onDismiss = { showAdd = false },
             onSave = { newEvent ->
                 viewModel.save(newEvent)
@@ -279,6 +288,8 @@ private fun TopCalendarBar(
     onRefresh: () -> Unit,
 ) {
     var showDropdown by remember { mutableStateOf(false) }
+    val enabledCalendars = remember(calendars) { calendars.filter { it.isEnabled } }
+    val disabledCalendars = remember(calendars) { calendars.filterNot { it.isEnabled } }
 
     Row(
         modifier = Modifier
@@ -308,8 +319,18 @@ private fun TopCalendarBar(
                                 .background(Color(selectedCalendar.color)),
                         )
                     }
+                    val labelText = when {
+                        selectedCalendar != null -> selectedCalendar.displayName
+                        calendars.isEmpty() -> stringResource(R.string.all_calendars)
+                        disabledCalendars.isNotEmpty() -> stringResource(
+                            R.string.calendars_enabled_count,
+                            enabledCalendars.size,
+                            calendars.size,
+                        )
+                        else -> stringResource(R.string.all_calendars)
+                    }
                     Text(
-                        text = selectedCalendar?.displayName ?: stringResource(R.string.all_calendars),
+                        text = labelText,
                         style = MaterialTheme.typography.labelMedium,
                     )
                     Icon(
@@ -325,13 +346,36 @@ private fun TopCalendarBar(
                 onDismissRequest = { showDropdown = false },
             ) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.all_calendars)) },
+                    text = {
+                        Column {
+                            Text(
+                                text = if (disabledCalendars.isNotEmpty()) {
+                                    stringResource(R.string.all_enabled_calendars)
+                                } else {
+                                    stringResource(R.string.all_calendars)
+                                },
+                                fontWeight = if (selectedCalendarId == null) FontWeight.Bold else FontWeight.Normal,
+                            )
+                            if (disabledCalendars.isNotEmpty()) {
+                                Text(
+                                    text = "${enabledCalendars.size} of ${calendars.size} active",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    },
                     onClick = {
                         onSelectCalendar(null)
                         showDropdown = false
                     },
                 )
-                calendars.forEach { cal ->
+
+                if (calendars.isNotEmpty()) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                }
+
+                enabledCalendars.forEach { cal ->
                     DropdownMenuItem(
                         text = {
                             Row(
@@ -352,6 +396,7 @@ private fun TopCalendarBar(
                                     Text(
                                         text = "${cal.displayName}${if (isGoogle) " (Google)" else ""}",
                                         style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (cal.id == selectedCalendarId) FontWeight.Bold else FontWeight.Normal,
                                     )
                                     if (cal.accountName.isNotBlank()) {
                                         Text(
@@ -369,6 +414,75 @@ private fun TopCalendarBar(
                         },
                     )
                 }
+
+                if (disabledCalendars.isNotEmpty()) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    disabledCalendars.forEach { cal ->
+                        DropdownMenuItem(
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                (if (cal.color != 0) Color(cal.color) else MaterialTheme.colorScheme.primary)
+                                                    .copy(alpha = 0.4f),
+                                            ),
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "${cal.displayName} (${stringResource(R.string.calendar_disabled_tag)})",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        )
+                                        if (cal.accountName.isNotBlank()) {
+                                            Text(
+                                                text = cal.accountName,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            onClick = {
+                                onSelectCalendar(cal.id)
+                                showDropdown = false
+                            },
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                text = stringResource(R.string.manage_calendars),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    },
+                    onClick = {
+                        showDropdown = false
+                        onOpenSettings()
+                    },
+                )
             }
         }
 
@@ -516,6 +630,8 @@ private fun DaySection(
     events: List<Event>,
     dateFormatter: DateTimeFormatter,
     timeFormatter: DateTimeFormatter,
+    allCalendarsDisabled: Boolean,
+    onOpenSettings: () -> Unit,
     onEventClick: (Event) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -541,7 +657,25 @@ private fun DaySection(
             }
         }
 
-        if (events.isEmpty()) {
+        if (allCalendarsDisabled) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.all_calendars_disabled_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                OutlinedButton(onClick = onOpenSettings) {
+                    Text(stringResource(R.string.manage_calendars))
+                }
+            }
+        } else if (events.isEmpty()) {
             Text(
                 text = stringResource(R.string.no_events_hint),
                 style = MaterialTheme.typography.bodyMedium,

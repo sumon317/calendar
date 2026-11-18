@@ -64,4 +64,12 @@
     <string name="settings_license">GNU General Public License v3.0</string>
     <string name="settings_primary_calendar">Primary</string>
     <string name="settings_local_account">Device Local</string>
+    <string name="settings_enable_all">Enable All</string>
+    <string name="settings_disable_all">Disable All</string>
+    <string name="calendars_enabled_count">%1$d of %2$d enabled</string>
+    <string name="all_enabled_calendars">All Enabled Calendars</string>
+    <string name="all_calendars_disabled_hint">All calendars are disabled. Enable calendars to view and manage your events.</string>
+    <string name="enable_all_calendars">Enable All Calendars</string>
+    <string name="manage_calendars">Manage Calendars…</string>
+    <string name="calendar_disabled_tag">Disabled</string>
 </resources>

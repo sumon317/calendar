@@ -35,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -134,7 +135,14 @@ fun SettingsScreen(
             )
 
             // Section 2: Device Calendars
-            CalendarsSection(calendars = state.calendars)
+            CalendarsSection(
+                calendars = state.calendars,
+                onToggleCalendar = { calId, isEnabled ->
+                    viewModel.toggleCalendarEnabled(calId, isEnabled)
+                },
+                onEnableAll = { viewModel.enableAllCalendars() },
+                onDisableAll = { viewModel.disableAllCalendars() },
+            )
 
             // Section 3: Permissions
             PermissionsSection(
@@ -294,7 +302,14 @@ private fun SyncSection(
 }
 
 @Composable
-private fun CalendarsSection(calendars: List<DeviceCalendar>) {
+private fun CalendarsSection(
+    calendars: List<DeviceCalendar>,
+    onToggleCalendar: (Long, Boolean) -> Unit,
+    onEnableAll: () -> Unit,
+    onDisableAll: () -> Unit,
+) {
+    val enabledCount = remember(calendars) { calendars.count { it.isEnabled } }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -308,15 +323,41 @@ private fun CalendarsSection(calendars: List<DeviceCalendar>) {
         ) {
             Column {
                 Text(
-                    text = "${stringResource(R.string.settings_device_calendars)} (${calendars.size})",
+                    text = stringResource(R.string.settings_device_calendars),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = stringResource(R.string.settings_device_calendars_desc),
+                    text = if (calendars.isNotEmpty()) {
+                        stringResource(R.string.calendars_enabled_count, enabledCount, calendars.size)
+                    } else {
+                        stringResource(R.string.settings_device_calendars_desc)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            if (calendars.size > 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = onEnableAll,
+                        enabled = enabledCount < calendars.size,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.settings_enable_all))
+                    }
+                    OutlinedButton(
+                        onClick = onDisableAll,
+                        enabled = enabledCount > 0,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.settings_disable_all))
+                    }
+                }
             }
 
             HorizontalDivider()
@@ -357,6 +398,11 @@ private fun CalendarsSection(calendars: List<DeviceCalendar>) {
                                         text = cal.displayName,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.SemiBold,
+                                        color = if (cal.isEnabled) {
+                                            MaterialTheme.colorScheme.onSurface
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        },
                                     )
                                     if (cal.isPrimary) {
                                         Surface(
@@ -385,6 +431,12 @@ private fun CalendarsSection(calendars: List<DeviceCalendar>) {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            Switch(
+                                checked = cal.isEnabled,
+                                onCheckedChange = { isChecked ->
+                                    onToggleCalendar(cal.id, isChecked)
+                                },
+                            )
                         }
                     }
                 }

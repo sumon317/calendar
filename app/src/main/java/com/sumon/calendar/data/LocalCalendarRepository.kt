@@ -190,9 +190,40 @@ class LocalCalendarRepository(private val context: Context) {
         }
     }
 
+    private val prefs = context.getSharedPreferences("calendar_settings", Context.MODE_PRIVATE)
+
+    fun getDisabledCalendarIds(): Set<Long> {
+        val raw = prefs.getStringSet("disabled_calendar_ids", null) ?: emptySet()
+        return raw.mapNotNull { it.toLongOrNull() }.toSet()
+    }
+
+    fun setCalendarEnabled(calendarId: Long, enabled: Boolean) {
+        val current = getDisabledCalendarIds().toMutableSet()
+        if (enabled) {
+            current.remove(calendarId)
+        } else {
+            current.add(calendarId)
+        }
+        prefs.edit()
+            .putStringSet("disabled_calendar_ids", current.map { it.toString() }.toSet())
+            .apply()
+    }
+
+    fun setAllCalendarsEnabled(calendars: List<DeviceCalendar>, enabled: Boolean) {
+        val newDisabled = if (enabled) {
+            emptySet()
+        } else {
+            calendars.map { it.id.toString() }.toSet()
+        }
+        prefs.edit()
+            .putStringSet("disabled_calendar_ids", newDisabled)
+            .apply()
+    }
+
     /** Returns all available calendars on the device. */
     suspend fun getCalendars(): List<DeviceCalendar> = withContext(Dispatchers.IO) {
         if (!hasPermissions()) return@withContext emptyList()
+        val disabledIds = getDisabledCalendarIds()
         val calendars = mutableListOf<DeviceCalendar>()
         val projection = arrayOf(
             CalendarContract.Calendars._ID,
@@ -218,15 +249,17 @@ class LocalCalendarRepository(private val context: Context) {
                 val primaryCol = cursor.getColumnIndex(CalendarContract.Calendars.IS_PRIMARY)
 
                 while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idCol)
                     val isPrimary = if (primaryCol != -1) cursor.getInt(primaryCol) == 1 else false
                     calendars.add(
                         DeviceCalendar(
-                            id = cursor.getLong(idCol),
+                            id = id,
                             displayName = cursor.getString(nameCol) ?: "Calendar",
                             accountName = cursor.getString(accNameCol) ?: "",
                             accountType = cursor.getString(accTypeCol) ?: "",
                             color = cursor.getInt(colorCol),
                             isPrimary = isPrimary,
+                            isEnabled = id !in disabledIds,
                         ),
                     )
                 }
@@ -242,16 +275,17 @@ class LocalCalendarRepository(private val context: Context) {
      */
     suspend fun getOrCreateDefaultCalendarId(): Long = withContext(Dispatchers.IO) {
         val calendars = getCalendars()
-        val primary = calendars.firstOrNull { it.isPrimary }
+        val enabledCalendars = calendars.filter { it.isEnabled }.ifEmpty { calendars }
+        val primary = enabledCalendars.firstOrNull { it.isPrimary }
         if (primary != null) return@withContext primary.id
 
-        val googleCal = calendars.firstOrNull { it.accountType == "com.google" }
+        val googleCal = enabledCalendars.firstOrNull { it.accountType == "com.google" }
         if (googleCal != null) return@withContext googleCal.id
 
-        val local = calendars.firstOrNull { it.accountType == CalendarContract.ACCOUNT_TYPE_LOCAL }
+        val local = enabledCalendars.firstOrNull { it.accountType == CalendarContract.ACCOUNT_TYPE_LOCAL }
         if (local != null) return@withContext local.id
 
-        if (calendars.isNotEmpty()) return@withContext calendars.first().id
+        if (enabledCalendars.isNotEmpty()) return@withContext enabledCalendars.first().id
 
         createLocalCalendar()
     }
@@ -280,13 +314,20 @@ class LocalCalendarRepository(private val context: Context) {
 
     /**
      * Queries expanded instances for recurring and one-off events in a given date range.
+     * Respects enabled calendars when no specific calendar filter is set.
      */
     suspend fun getEventsInRange(
         startMillis: Long,
         endMillis: Long,
         calendarIdFilter: Long? = null,
+        enabledCalendarIds: Set<Long>? = null,
     ): List<Event> = withContext(Dispatchers.IO) {
         if (!hasPermissions()) return@withContext emptyList()
+        // If all calendars are disabled and no specific calendar filter is chosen, return empty
+        if (calendarIdFilter == null && enabledCalendarIds != null && enabledCalendarIds.isEmpty()) {
+            return@withContext emptyList()
+        }
+
         val events = mutableListOf<Event>()
 
         val builder = CalendarContract.Instances.CONTENT_URI.buildUpon()
@@ -309,12 +350,19 @@ class LocalCalendarRepository(private val context: Context) {
             CalendarContract.Instances.EVENT_TIMEZONE,
         )
 
-        val selection = if (calendarIdFilter != null && calendarIdFilter > 0) {
-            "${CalendarContract.Instances.CALENDAR_ID} = ?"
-        } else null
-        val selectionArgs = if (calendarIdFilter != null && calendarIdFilter > 0) {
-            arrayOf(calendarIdFilter.toString())
-        } else null
+        val (selection, selectionArgs) = when {
+            calendarIdFilter != null && calendarIdFilter > 0 -> {
+                Pair("${CalendarContract.Instances.CALENDAR_ID} = ?", arrayOf(calendarIdFilter.toString()))
+            }
+            enabledCalendarIds != null -> {
+                val placeholders = enabledCalendarIds.joinToString(",") { "?" }
+                Pair(
+                    "${CalendarContract.Instances.CALENDAR_ID} IN ($placeholders)",
+                    enabledCalendarIds.map { it.toString() }.toTypedArray(),
+                )
+            }
+            else -> Pair(null, null)
+        }
 
         try {
             context.contentResolver.query(

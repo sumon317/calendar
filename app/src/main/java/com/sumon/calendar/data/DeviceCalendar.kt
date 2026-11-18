@@ -10,4 +10,5 @@ data class DeviceCalendar(
     val accountType: String,
     val color: Int,
     val isPrimary: Boolean = false,
+    val isEnabled: Boolean = true,
 )

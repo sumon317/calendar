@@ -94,12 +94,18 @@ class CalendarViewModel(
 
                     val calendars = repository.getCalendars()
                     val googleAccounts = repository.getGoogleAccounts()
+                    val enabledCalendarIds = calendars.filter { it.isEnabled }.map { it.id }.toSet()
+
+                    // If currently selected calendar was disabled, reset filter to all
+                    val effectiveFilter = if (params.calendarFilter != null && params.calendarFilter in enabledCalendarIds) {
+                        params.calendarFilter
+                    } else null
 
                     val (monthStart, monthEnd) = LocalCalendarRepository.monthToMillisRange(params.month)
-                    val monthEvents = repository.getEventsInRange(monthStart, monthEnd, params.calendarFilter)
+                    val monthEvents = repository.getEventsInRange(monthStart, monthEnd, effectiveFilter, enabledCalendarIds)
 
                     val (dayStart, dayEnd) = LocalCalendarRepository.dayToMillisRange(params.selectedDay)
-                    val dayEventsRaw = repository.getEventsInRange(dayStart, dayEnd, params.calendarFilter)
+                    val dayEventsRaw = repository.getEventsInRange(dayStart, dayEnd, effectiveFilter, enabledCalendarIds)
 
                     // Enrich day events with reminder info
                     val dayEvents = dayEventsRaw.map { event ->
@@ -115,7 +121,7 @@ class CalendarViewModel(
                             dayEvents = dayEvents,
                             calendars = calendars,
                             googleAccounts = googleAccounts,
-                            selectedCalendarId = params.calendarFilter,
+                            selectedCalendarId = effectiveFilter,
                             hasPermission = true,
                             isLoading = false,
                         )
@@ -162,6 +168,23 @@ class CalendarViewModel(
 
     fun filterByCalendar(calendarId: Long?) {
         selectedCalendarId.value = calendarId
+    }
+
+    fun toggleCalendarEnabled(calendarId: Long, isEnabled: Boolean) {
+        repository.setCalendarEnabled(calendarId, isEnabled)
+        refresh()
+    }
+
+    fun enableAllCalendars() {
+        val allCals = _uiState.value.calendars
+        repository.setAllCalendarsEnabled(allCals, true)
+        refresh()
+    }
+
+    fun disableAllCalendars() {
+        val allCals = _uiState.value.calendars
+        repository.setAllCalendarsEnabled(allCals, false)
+        refresh()
     }
 
     fun save(event: Event) = viewModelScope.launch {
