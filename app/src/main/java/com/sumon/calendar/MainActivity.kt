@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleNotificationIntent(intent)
         enableEdgeToEdge()
         setContent {
             val themeMode by calendarViewModel.themeMode.collectAsStateWithLifecycle()
@@ -78,6 +79,21 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    private fun handleNotificationIntent(intent: android.content.Intent?) {
+        if (intent == null) return
+        val eventId = intent.getLongExtra("EXTRA_EVENT_ID", -1L)
+        val beginMillis = intent.getLongExtra("EXTRA_BEGIN_MILLIS", 0L)
+        if (eventId > 0) {
+            calendarViewModel.openEventDetail(eventId, beginMillis, beginMillis + 3600000L)
         }
     }
 

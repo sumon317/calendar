@@ -46,8 +46,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -100,6 +103,47 @@ fun SettingsScreen(
     ) {
         viewModel.checkPermissions()
         viewModel.refresh()
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+    var exportStatusMessage by remember { mutableStateOf<String?>(null) }
+
+    val exportIcsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/calendar"),
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                try {
+                    val icsContent = viewModel.exportIcs()
+                    context.contentResolver.openOutputStream(uri)?.use { os ->
+                        os.write(icsContent.toByteArray(Charsets.UTF_8))
+                    }
+                    exportStatusMessage = "Calendar exported successfully!"
+                } catch (e: Exception) {
+                    exportStatusMessage = "Export failed: ${e.localizedMessage}"
+                }
+            }
+        }
+    }
+
+    val importIcsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                try {
+                    val content = context.contentResolver.openInputStream(uri)?.use { isStream ->
+                        isStream.bufferedReader().readText()
+                    }.orEmpty()
+                    val targetCalId = state.calendars.firstOrNull { it.isEnabled }?.id ?: 1L
+                    val count = viewModel.importIcs(content, targetCalId)
+                    exportStatusMessage = "Imported $count events into calendar."
+                } catch (e: Exception) {
+                    exportStatusMessage = "Import failed: ${e.localizedMessage}"
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -162,7 +206,19 @@ fun SettingsScreen(
                 onDisableAll = { viewModel.disableAllCalendars() },
             )
 
-            // Section 3: Permissions
+            // Section 3: Backup & Restore (iCalendar .ics)
+            BackupSection(
+                statusMessage = exportStatusMessage,
+                onExportIcs = {
+                    val defaultName = "calendar_backup_${java.time.LocalDate.now()}.ics"
+                    exportIcsLauncher.launch(defaultName)
+                },
+                onImportIcs = {
+                    importIcsLauncher.launch(arrayOf("text/calendar", "*/*"))
+                },
+            )
+
+            // Section 4: Permissions
             PermissionsSection(
                 hasPermission = state.hasPermission,
                 onRequestPermission = {
@@ -647,6 +703,74 @@ private fun CalendarsSection(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BackupSection(
+    statusMessage: String?,
+    onExportIcs: () -> Unit,
+    onImportIcs: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column {
+                Text(
+                    text = "Backup & Restore (iCalendar)",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "Export your events to an RFC 5545 .ics file or restore from external backup files.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onExportIcs,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Export .ics")
+                }
+                OutlinedButton(
+                    onClick = onImportIcs,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Import .ics")
+                }
+            }
+
+            if (!statusMessage.isNullOrBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = statusMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
                 }
             }
         }

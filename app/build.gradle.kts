@@ -25,8 +25,8 @@ android {
         applicationId = "com.sumon.calendar"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.1.3-beta"
+        versionCode = 6
+        versionName = "1.1.4-beta"
     }
 
     signingConfigs {
@@ -86,6 +86,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
+    implementation(libs.androidx.compose.material.icons.extended)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

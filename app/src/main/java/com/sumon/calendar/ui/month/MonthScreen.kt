@@ -1,6 +1,7 @@
 package com.sumon.calendar.ui.month
 
 import android.Manifest
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
@@ -32,12 +33,15 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material.icons.filled.ViewDay
+import androidx.compose.material.icons.filled.ViewModule
+import androidx.compose.material.icons.filled.ViewWeek
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,7 +56,6 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,8 +76,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sumon.calendar.R
 import com.sumon.calendar.data.DeviceCalendar
 import com.sumon.calendar.data.Event
+import com.sumon.calendar.domain.CalendarViewMode
+import com.sumon.calendar.domain.EventDetail
+import com.sumon.calendar.domain.EventForm
+import com.sumon.calendar.domain.EventInstance
+import com.sumon.calendar.ui.agenda.AgendaScreen
+import com.sumon.calendar.ui.day.DayScreen
+import com.sumon.calendar.ui.detail.EventDetailScreen
+import com.sumon.calendar.ui.edit.EventEditScreen
+import com.sumon.calendar.ui.search.SearchScreen
+import com.sumon.calendar.ui.week.WeekScreen
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
@@ -87,6 +104,14 @@ fun MonthScreen(
     onOpenSettings: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
+    val activeDetail by viewModel.activeDetail.collectAsStateWithLifecycle()
+    val isSearchOpen by viewModel.isSearchOpen.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    val isEditOpen by viewModel.isEditOpen.collectAsStateWithLifecycle()
+    val editingForm by viewModel.editingForm.collectAsStateWithLifecycle()
+
     val today = remember { LocalDate.now() }
     val weekStart = remember { WeekFields.of(Locale.getDefault()).firstDayOfWeek }
     val cells = remember(state.month, weekStart) { buildMonthCells(state.month, weekStart) }
@@ -97,8 +122,6 @@ fun MonthScreen(
     val context = LocalContext.current
     val is24Hour = remember(context) { android.text.format.DateFormat.is24HourFormat(context) }
 
-    var showAdd by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<Event?>(null) }
     var pickingMonth by remember { mutableStateOf(false) }
     var pickingYear by remember { mutableStateOf(false) }
 
@@ -109,6 +132,53 @@ fun MonthScreen(
         val granted = results[Manifest.permission.READ_CALENDAR] == true &&
             results[Manifest.permission.WRITE_CALENDAR] == true
         viewModel.onPermissionResult(granted)
+    }
+
+    // Overlay Screen: Search
+    if (isSearchOpen) {
+        BackHandler { viewModel.closeSearch() }
+        SearchScreen(
+            query = searchQuery,
+            results = searchResults,
+            onQueryChanged = viewModel::onSearchQueryChanged,
+            onEventClick = { inst ->
+                viewModel.openEventDetail(inst.eventId, inst.startEpochMillis, inst.endEpochMillis)
+            },
+            onBack = viewModel::closeSearch,
+        )
+        return
+    }
+
+    // Overlay Screen: Event Detail
+    if (activeDetail != null) {
+        BackHandler { viewModel.closeEventDetail() }
+        EventDetailScreen(
+            detail = activeDetail!!,
+            onBack = viewModel::closeEventDetail,
+            onEdit = { viewModel.openEditEvent(activeDetail!!) },
+            onDelete = { scope ->
+                viewModel.deleteEventScoped(
+                    activeDetail!!.instance.eventId,
+                    scope,
+                    activeDetail!!.instance.startEpochMillis,
+                )
+            },
+        )
+        return
+    }
+
+    // Overlay Screen: Event Edit / Create
+    if (isEditOpen && editingForm != null) {
+        BackHandler { viewModel.closeEditEvent() }
+        EventEditScreen(
+            initialForm = editingForm!!,
+            calendars = state.calendars,
+            onDismiss = viewModel::closeEditEvent,
+            onSave = { form, scope ->
+                viewModel.saveEventForm(form, scope)
+            },
+        )
+        return
     }
 
     Scaffold(
@@ -128,7 +198,7 @@ fun MonthScreen(
                             Text(stringResource(R.string.today))
                         }
                     }
-                    FloatingActionButton(onClick = { showAdd = true }) {
+                    FloatingActionButton(onClick = { viewModel.openCreateEvent(state.selectedDay, null) }) {
                         Icon(
                             imageVector = Icons.Filled.Add,
                             contentDescription = stringResource(R.string.add_event),
@@ -145,12 +215,15 @@ fun MonthScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 4.dp),
         ) {
-            // Calendar filter, Refresh, and Settings bar
+            // Calendar filter, View Mode switcher, Search, Refresh, and Settings bar
             TopCalendarBar(
+                currentViewMode = viewMode,
                 calendars = state.calendars,
                 selectedCalendarId = state.selectedCalendarId,
                 isSyncing = state.isSyncing,
+                onSelectViewMode = viewModel::setViewMode,
                 onSelectCalendar = viewModel::filterByCalendar,
+                onOpenSearch = viewModel::openSearch,
                 onOpenSettings = onOpenSettings,
                 onRefresh = {
                     viewModel.refresh()
@@ -172,87 +245,113 @@ fun MonthScreen(
                 )
             }
 
-            // Month navigation header
-            MonthHeader(
-                month = state.month,
-                onPrevious = viewModel::previousMonth,
-                onNext = viewModel::nextMonth,
-                onSelectMonth = { pickingMonth = true },
-                onSelectYear = { pickingYear = true },
-            )
+            // View Content Switcher
+            when (viewMode) {
+                CalendarViewMode.Month -> {
+                    // Month navigation header
+                    MonthHeader(
+                        month = state.month,
+                        onPrevious = viewModel::previousMonth,
+                        onNext = viewModel::nextMonth,
+                        onSelectMonth = { pickingMonth = true },
+                        onSelectYear = { pickingYear = true },
+                    )
 
-            // Day-of-week header row (Mon, Tue, ...)
-            WeekdayLabelRow(weekdayNames)
+                    // Day-of-week header row (Mon, Tue, ...)
+                    WeekdayLabelRow(weekdayNames)
 
-            // 7xN Calendar grid
-            MonthGrid(
-                cells = cells,
-                selectedDay = state.selectedDay,
-                today = today,
-                eventDays = eventDays,
-                onSelectDay = viewModel::select,
-            )
+                    // 7xN Calendar grid
+                    MonthGrid(
+                        cells = cells,
+                        selectedDay = state.selectedDay,
+                        today = today,
+                        eventDays = eventDays,
+                        onSelectDay = viewModel::select,
+                    )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            val allCalendarsDisabled = remember(state.calendars) {
-                state.calendars.isNotEmpty() && state.calendars.none { it.isEnabled }
-            }
-
-            // Day events view
-            DaySection(
-                date = state.selectedDay,
-                events = state.dayEvents,
-                dateFormatter = dateFormatter,
-                timeFormatter = timeFormatter,
-                allCalendarsDisabled = allCalendarsDisabled,
-                onOpenSettings = onOpenSettings,
-                onEventClick = { event ->
-                    viewModel.loadEventForEditing(event) { fullEvent ->
-                        editing = fullEvent
+                    val allCalendarsDisabled = remember(state.calendars) {
+                        state.calendars.isNotEmpty() && state.calendars.none { it.isEnabled }
                     }
-                },
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
 
-    if (showAdd) {
-        val enabledCalendars = remember(state.calendars) {
-            state.calendars.filter { it.isEnabled }.ifEmpty { state.calendars }
-        }
-        AddEventDialog(
-            initialDate = state.selectedDay,
-            is24Hour = is24Hour,
-            dateFormatter = dateFormatter,
-            timeFormatter = timeFormatter,
-            availableCalendars = enabledCalendars,
-            onDismiss = { showAdd = false },
-            onSave = { newEvent ->
-                viewModel.save(newEvent)
-                showAdd = false
-            },
-        )
-    }
+                    // Day events list
+                    DaySection(
+                        date = state.selectedDay,
+                        events = state.dayEvents,
+                        dateFormatter = dateFormatter,
+                        timeFormatter = timeFormatter,
+                        allCalendarsDisabled = allCalendarsDisabled,
+                        onOpenSettings = onOpenSettings,
+                        onEventClick = { event ->
+                            val zone = ZoneId.systemDefault()
+                            val begin = if (event.isAllDay) {
+                                event.startDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                            } else {
+                                event.startDate.atTime(event.startTime ?: LocalTime.of(9, 0)).atZone(zone).toInstant().toEpochMilli()
+                            }
+                            val end = if (event.isAllDay) {
+                                event.endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                            } else {
+                                event.endDate.atTime(event.endTime ?: LocalTime.of(10, 0)).atZone(zone).toInstant().toEpochMilli()
+                            }
+                            viewModel.openEventDetail(event.id, begin, end)
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
 
-    editing?.let { target ->
-        AddEventDialog(
-            initialEvent = target,
-            initialDate = target.startDate,
-            is24Hour = is24Hour,
-            dateFormatter = dateFormatter,
-            timeFormatter = timeFormatter,
-            availableCalendars = state.calendars,
-            onDismiss = { editing = null },
-            onSave = { updatedEvent ->
-                viewModel.save(updatedEvent)
-                editing = null
-            },
-            onDelete = {
-                viewModel.delete(target.id)
-                editing = null
-            },
-        )
+                CalendarViewMode.Week -> {
+                    WeekScreen(
+                        selectedDate = state.selectedDay,
+                        instances = state.allInstances,
+                        onEventClick = { inst ->
+                            viewModel.openEventDetail(inst.eventId, inst.startEpochMillis, inst.endEpochMillis)
+                        },
+                        onTimeSlotClick = { date, time ->
+                            viewModel.openCreateEvent(date, time)
+                        },
+                        onSelectDay = viewModel::select,
+                        onPreviousWeek = viewModel::previousWeek,
+                        onNextWeek = viewModel::nextWeek,
+                        onToday = viewModel::goToToday,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                CalendarViewMode.Day -> {
+                    DayScreen(
+                        date = state.selectedDay,
+                        instances = state.allInstances,
+                        onEventClick = { inst ->
+                            viewModel.openEventDetail(inst.eventId, inst.startEpochMillis, inst.endEpochMillis)
+                        },
+                        onTimeSlotClick = { date, time ->
+                            viewModel.openCreateEvent(date, time)
+                        },
+                        onPreviousDay = viewModel::previousDay,
+                        onNextDay = viewModel::nextDay,
+                        onToday = viewModel::goToToday,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                CalendarViewMode.Agenda -> {
+                    AgendaScreen(
+                        instances = state.allInstances,
+                        selectedDay = state.selectedDay,
+                        onEventClick = { inst ->
+                            viewModel.openEventDetail(inst.eventId, inst.startEpochMillis, inst.endEpochMillis)
+                        },
+                        onDayClick = { date ->
+                            viewModel.select(date)
+                            viewModel.setViewMode(CalendarViewMode.Day)
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 
     if (pickingMonth) {
@@ -280,14 +379,18 @@ fun MonthScreen(
 
 @Composable
 private fun TopCalendarBar(
+    currentViewMode: CalendarViewMode,
     calendars: List<DeviceCalendar>,
     selectedCalendarId: Long?,
     isSyncing: Boolean,
+    onSelectViewMode: (CalendarViewMode) -> Unit,
     onSelectCalendar: (Long?) -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
     onRefresh: () -> Unit,
 ) {
     var showDropdown by remember { mutableStateOf(false) }
+    var showViewDropdown by remember { mutableStateOf(false) }
     val enabledCalendars = remember(calendars) { calendars.filter { it.isEnabled } }
     val disabledCalendars = remember(calendars) { calendars.filterNot { it.isEnabled } }
 
@@ -298,126 +401,158 @@ private fun TopCalendarBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        // Calendar selection dropdown
-        Box {
-            val selectedCalendar = calendars.firstOrNull { it.id == selectedCalendarId }
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.clickable { showDropdown = true },
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            // View Mode Dropdown
+            Box {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.clickable { showViewDropdown = true },
                 ) {
-                    if (selectedCalendar != null && selectedCalendar.color != 0) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(Color(selectedCalendar.color)),
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        val modeIcon = when (currentViewMode) {
+                            CalendarViewMode.Month -> Icons.Default.ViewModule
+                            CalendarViewMode.Week -> Icons.Default.ViewWeek
+                            CalendarViewMode.Day -> Icons.Default.ViewDay
+                            CalendarViewMode.Agenda -> Icons.Default.ViewAgenda
+                        }
+                        Icon(
+                            imageVector = modeIcon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            text = currentViewMode.label,
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(16.dp),
                         )
                     }
-                    val labelText = when {
-                        selectedCalendar != null -> selectedCalendar.displayName
-                        calendars.isEmpty() -> stringResource(R.string.all_calendars)
-                        disabledCalendars.isNotEmpty() -> stringResource(
-                            R.string.calendars_enabled_count,
-                            enabledCalendars.size,
-                            calendars.size,
+                }
+
+                DropdownMenu(
+                    expanded = showViewDropdown,
+                    onDismissRequest = { showViewDropdown = false },
+                ) {
+                    CalendarViewMode.entries.forEach { mode ->
+                        val itemIcon = when (mode) {
+                            CalendarViewMode.Month -> Icons.Default.ViewModule
+                            CalendarViewMode.Week -> Icons.Default.ViewWeek
+                            CalendarViewMode.Day -> Icons.Default.ViewDay
+                            CalendarViewMode.Agenda -> Icons.Default.ViewAgenda
+                        }
+                        DropdownMenuItem(
+                            leadingIcon = {
+                                Icon(itemIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                            },
+                            text = {
+                                Text(
+                                    text = mode.label,
+                                    fontWeight = if (mode == currentViewMode) FontWeight.Bold else FontWeight.Normal,
+                                )
+                            },
+                            onClick = {
+                                onSelectViewMode(mode)
+                                showViewDropdown = false
+                            },
                         )
-                        else -> stringResource(R.string.all_calendars)
                     }
-                    Text(
-                        text = labelText,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.ArrowDropDown,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
                 }
             }
 
-            DropdownMenu(
-                expanded = showDropdown,
-                onDismissRequest = { showDropdown = false },
-            ) {
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(
-                                text = if (disabledCalendars.isNotEmpty()) {
-                                    stringResource(R.string.all_enabled_calendars)
-                                } else {
-                                    stringResource(R.string.all_calendars)
-                                },
-                                fontWeight = if (selectedCalendarId == null) FontWeight.Bold else FontWeight.Normal,
+            // Calendar selection dropdown
+            Box {
+                val selectedCalendar = calendars.firstOrNull { it.id == selectedCalendarId }
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.clickable { showDropdown = true },
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        if (selectedCalendar != null && selectedCalendar.color != 0) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(selectedCalendar.color)),
                             )
-                            if (disabledCalendars.isNotEmpty()) {
-                                Text(
-                                    text = "${enabledCalendars.size} of ${calendars.size} active",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
                         }
-                    },
-                    onClick = {
-                        onSelectCalendar(null)
-                        showDropdown = false
-                    },
-                )
-
-                if (calendars.isNotEmpty()) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        val labelText = when {
+                            selectedCalendar != null -> selectedCalendar.displayName
+                            calendars.isEmpty() -> stringResource(R.string.all_calendars)
+                            disabledCalendars.isNotEmpty() -> stringResource(
+                                R.string.calendars_enabled_count,
+                                enabledCalendars.size,
+                                calendars.size,
+                            )
+                            else -> stringResource(R.string.all_calendars)
+                        }
+                        Text(
+                            text = labelText,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDropDown,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                 }
 
-                enabledCalendars.forEach { cal ->
+                DropdownMenu(
+                    expanded = showDropdown,
+                    onDismissRequest = { showDropdown = false },
+                ) {
                     DropdownMenuItem(
                         text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (cal.color != 0) Color(cal.color)
-                                            else MaterialTheme.colorScheme.primary,
-                                        ),
+                            Column {
+                                Text(
+                                    text = if (disabledCalendars.isNotEmpty()) {
+                                        stringResource(R.string.all_enabled_calendars)
+                                    } else {
+                                        stringResource(R.string.all_calendars)
+                                    },
+                                    fontWeight = if (selectedCalendarId == null) FontWeight.Bold else FontWeight.Normal,
                                 )
-                                Column {
-                                    val isGoogle = cal.accountType == "com.google"
+                                if (disabledCalendars.isNotEmpty()) {
                                     Text(
-                                        text = "${cal.displayName}${if (isGoogle) " (Google)" else ""}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (cal.id == selectedCalendarId) FontWeight.Bold else FontWeight.Normal,
+                                        text = "${enabledCalendars.size} of ${calendars.size} active",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    if (cal.accountName.isNotBlank()) {
-                                        Text(
-                                            text = cal.accountName,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
                                 }
                             }
                         },
                         onClick = {
-                            onSelectCalendar(cal.id)
+                            onSelectCalendar(null)
                             showDropdown = false
                         },
                     )
-                }
 
-                if (disabledCalendars.isNotEmpty()) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    disabledCalendars.forEach { cal ->
+                    if (calendars.isNotEmpty()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    }
+
+                    enabledCalendars.forEach { cal ->
                         DropdownMenuItem(
                             text = {
                                 Row(
@@ -429,21 +564,22 @@ private fun TopCalendarBar(
                                             .size(10.dp)
                                             .clip(CircleShape)
                                             .background(
-                                                (if (cal.color != 0) Color(cal.color) else MaterialTheme.colorScheme.primary)
-                                                    .copy(alpha = 0.4f),
+                                                if (cal.color != 0) Color(cal.color)
+                                                else MaterialTheme.colorScheme.primary,
                                             ),
                                     )
                                     Column {
+                                        val isGoogle = cal.accountType == "com.google"
                                         Text(
-                                            text = "${cal.displayName} (${stringResource(R.string.calendar_disabled_tag)})",
+                                            text = "${cal.displayName}${if (isGoogle) " (Google)" else ""}",
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            fontWeight = if (cal.id == selectedCalendarId) FontWeight.Bold else FontWeight.Normal,
                                         )
                                         if (cal.accountName.isNotBlank()) {
                                             Text(
                                                 text = cal.accountName,
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                         }
                                     }
@@ -455,42 +591,91 @@ private fun TopCalendarBar(
                             },
                         )
                     }
-                }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                DropdownMenuItem(
-                    text = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                text = stringResource(R.string.manage_calendars),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Medium,
+                    if (disabledCalendars.isNotEmpty()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        disabledCalendars.forEach { cal ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(10.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    (if (cal.color != 0) Color(cal.color) else MaterialTheme.colorScheme.primary)
+                                                        .copy(alpha = 0.4f),
+                                                ),
+                                        )
+                                        Column {
+                                            Text(
+                                                text = "${cal.displayName} (${stringResource(R.string.calendar_disabled_tag)})",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            )
+                                            if (cal.accountName.isNotBlank()) {
+                                                Text(
+                                                    text = cal.accountName,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                )
+                                            }
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    onSelectCalendar(cal.id)
+                                    showDropdown = false
+                                },
                             )
                         }
-                    },
-                    onClick = {
-                        showDropdown = false
-                        onOpenSettings()
-                    },
-                )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = stringResource(R.string.manage_calendars),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        },
+                        onClick = {
+                            showDropdown = false
+                            onOpenSettings()
+                        },
+                    )
+                }
             }
         }
 
-        // Action buttons: Refresh and Settings
+        // Action buttons: Search, Refresh and Settings
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
+            IconButton(onClick = onOpenSearch) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                )
+            }
+
             val infiniteTransition = rememberInfiniteTransition(label = "refreshSpin")
             val rotation by infiniteTransition.animateFloat(
                 initialValue = 0f,
@@ -521,36 +706,6 @@ private fun TopCalendarBar(
 }
 
 @Composable
-private fun PermissionBanner(onRequestPermission: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        ),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.permission_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.permission_message),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(onClick = onRequestPermission) {
-                Text(stringResource(R.string.grant_permission))
-            }
-        }
-    }
-}
-
-@Composable
 private fun MonthHeader(
     month: YearMonth,
     onPrevious: () -> Unit,
@@ -558,13 +713,12 @@ private fun MonthHeader(
     onSelectMonth: () -> Unit,
     onSelectYear: () -> Unit,
 ) {
-    val monthName = remember(month) {
-        month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
-    }
-    val yearText = remember(month) { month.year.toString() }
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         IconButton(onClick = onPrevious) {
             Icon(
@@ -573,30 +727,31 @@ private fun MonthHeader(
             )
         }
         Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            TextButton(onClick = onSelectMonth) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color.Transparent,
+                modifier = Modifier.clickable(onClick = onSelectMonth),
+            ) {
                 Text(
-                    text = monthName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = stringResource(R.string.select_month),
+                    text = month.month.getDisplayName(TextStyle.FULL, Locale.getDefault()),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                 )
             }
-            TextButton(onClick = onSelectYear) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color.Transparent,
+                modifier = Modifier.clickable(onClick = onSelectYear),
+            ) {
                 Text(
-                    text = yearText,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = stringResource(R.string.select_year),
+                    text = month.year.toString(),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                 )
             }
         }
@@ -718,7 +873,6 @@ private fun EventCard(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Calendar accent color bar
             Box(
                 modifier = Modifier
                     .width(6.dp)
@@ -750,43 +904,78 @@ private fun EventCard(
                             text = calName,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 8.dp),
                         )
                     }
                 }
 
-                val timeText = if (event.isAllDay || event.startTime == null) {
-                    stringResource(R.string.all_day)
-                } else {
-                    val startStr = event.startTime.format(timeFormatter)
-                    val endStr = event.endTime?.format(timeFormatter)
-                    if (endStr != null) "$startStr – $endStr" else startStr
-                }
-                Text(
-                    text = timeText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val timeText = if (event.isAllDay) {
+                        stringResource(R.string.all_day)
+                    } else if (event.startTime != null && event.endTime != null) {
+                        "${event.startTime.format(timeFormatter)} – ${event.endTime.format(timeFormatter)}"
+                    } else if (event.startTime != null) {
+                        event.startTime.format(timeFormatter)
+                    } else {
+                        stringResource(R.string.all_day)
+                    }
 
-                if (!event.location.isNullOrBlank()) {
                     Text(
-                        text = "📍 ${event.location}",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = timeText,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
-                }
 
-                if (!event.description.isNullOrBlank()) {
-                    Text(
-                        text = event.description,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    if (!event.location.isNullOrBlank()) {
+                        Text(
+                            text = event.location,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionBanner(
+    onRequestPermission: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.permission_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Text(
+                text = stringResource(R.string.permission_message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Button(
+                onClick = onRequestPermission,
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Text(stringResource(R.string.grant_permission))
             }
         }
     }
