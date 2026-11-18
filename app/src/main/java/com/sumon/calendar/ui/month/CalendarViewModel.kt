@@ -140,6 +140,8 @@ class CalendarViewModel(
 
     fun createSyncSettingsIntent(): Intent = repository.createSyncSettingsIntent()
 
+    fun createAppSettingsIntent(): Intent = repository.createAppSettingsIntent()
+
     fun previousMonth() = month.update { it.minusMonths(1) }
 
     fun nextMonth() = month.update { it.plusMonths(1) }

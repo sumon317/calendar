@@ -181,6 +181,15 @@ class LocalCalendarRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Creates an Intent opening this app's details settings page in system settings.
+     */
+    fun createAppSettingsIntent(): Intent {
+        return Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+        }
+    }
+
     /** Returns all available calendars on the device. */
     suspend fun getCalendars(): List<DeviceCalendar> = withContext(Dispatchers.IO) {
         if (!hasPermissions()) return@withContext emptyList()

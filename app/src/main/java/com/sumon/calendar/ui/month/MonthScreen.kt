@@ -1,7 +1,6 @@
 package com.sumon.calendar.ui.month
 
 import android.Manifest
-import android.accounts.Account
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
@@ -32,6 +31,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -81,7 +82,10 @@ import java.time.temporal.WeekFields
 import java.util.Locale
 
 @Composable
-fun MonthScreen(viewModel: CalendarViewModel) {
+fun MonthScreen(
+    viewModel: CalendarViewModel,
+    onOpenSettings: () -> Unit,
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val today = remember { LocalDate.now() }
     val weekStart = remember { WeekFields.of(Locale.getDefault()).firstDayOfWeek }
@@ -97,7 +101,6 @@ fun MonthScreen(viewModel: CalendarViewModel) {
     var editing by remember { mutableStateOf<Event?>(null) }
     var pickingMonth by remember { mutableStateOf(false) }
     var pickingYear by remember { mutableStateOf(false) }
-    var showGoogleDialog by remember { mutableStateOf(false) }
 
     // Runtime Permission Launcher for Android Calendar Provider
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -106,22 +109,6 @@ fun MonthScreen(viewModel: CalendarViewModel) {
         val granted = results[Manifest.permission.READ_CALENDAR] == true &&
             results[Manifest.permission.WRITE_CALENDAR] == true
         viewModel.onPermissionResult(granted)
-    }
-
-    // Google Login / Account Chooser Launcher
-    val googleLoginLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) {
-        viewModel.refresh()
-        viewModel.syncWithGoogle()
-    }
-
-    // Device Sync Settings Launcher
-    val syncSettingsLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) {
-        viewModel.refresh()
-        viewModel.syncWithGoogle()
     }
 
     Scaffold(
@@ -158,14 +145,13 @@ fun MonthScreen(viewModel: CalendarViewModel) {
                 .padding(innerPadding)
                 .padding(horizontal = 4.dp),
         ) {
-            // Calendar filter, Google sync status, and refresh bar
+            // Calendar filter, Refresh, and Settings bar
             TopCalendarBar(
                 calendars = state.calendars,
                 selectedCalendarId = state.selectedCalendarId,
-                googleAccounts = state.googleAccounts,
                 isSyncing = state.isSyncing,
                 onSelectCalendar = viewModel::filterByCalendar,
-                onOpenGoogleSync = { showGoogleDialog = true },
+                onOpenSettings = onOpenSettings,
                 onRefresh = {
                     viewModel.refresh()
                     viewModel.syncWithGoogle()
@@ -260,21 +246,6 @@ fun MonthScreen(viewModel: CalendarViewModel) {
         )
     }
 
-    if (showGoogleDialog) {
-        GoogleSyncDialog(
-            googleAccounts = state.googleAccounts,
-            isSyncing = state.isSyncing,
-            onDismiss = { showGoogleDialog = false },
-            onSyncNow = { viewModel.syncWithGoogle() },
-            onSignInWithGoogle = {
-                googleLoginLauncher.launch(viewModel.createGoogleLoginIntent())
-            },
-            onOpenSettings = {
-                syncSettingsLauncher.launch(viewModel.createSyncSettingsIntent())
-            },
-        )
-    }
-
     if (pickingMonth) {
         MonthPickerDialog(
             selectedMonth = state.month.monthValue,
@@ -302,10 +273,9 @@ fun MonthScreen(viewModel: CalendarViewModel) {
 private fun TopCalendarBar(
     calendars: List<DeviceCalendar>,
     selectedCalendarId: Long?,
-    googleAccounts: List<Account>,
     isSyncing: Boolean,
     onSelectCalendar: (Long?) -> Unit,
-    onOpenGoogleSync: () -> Unit,
+    onOpenSettings: () -> Unit,
     onRefresh: () -> Unit,
 ) {
     var showDropdown by remember { mutableStateOf(false) }
@@ -402,43 +372,11 @@ private fun TopCalendarBar(
             }
         }
 
-        // Google Sync button and Refresh button
+        // Action buttons: Refresh and Settings
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.clickable(onClick = onOpenGoogleSync),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    if (isSyncing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(12.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    } else {
-                        // Google G Indicator
-                        Text(
-                            text = "G",
-                            fontWeight = FontWeight.Bold,
-                            color = if (googleAccounts.isNotEmpty()) Color(0xFF4285F4) else MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    }
-                    Text(
-                        text = if (googleAccounts.isNotEmpty()) "Google Sync" else "Connect Google",
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-            }
-
             val infiniteTransition = rememberInfiniteTransition(label = "refreshSpin")
             val rotation by infiniteTransition.animateFloat(
                 initialValue = 0f,
@@ -451,139 +389,21 @@ private fun TopCalendarBar(
             )
 
             IconButton(onClick = onRefresh) {
-                Text(
-                    text = "↻",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = stringResource(R.string.refresh),
                     modifier = if (isSyncing) Modifier.rotate(rotation) else Modifier,
+                )
+            }
+
+            IconButton(onClick = onOpenSettings) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = stringResource(R.string.settings),
                 )
             }
         }
     }
-}
-
-@Composable
-private fun GoogleSyncDialog(
-    googleAccounts: List<Account>,
-    isSyncing: Boolean,
-    onDismiss: () -> Unit,
-    onSyncNow: () -> Unit,
-    onSignInWithGoogle: () -> Unit,
-    onOpenSettings: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "G",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-                Text(stringResource(R.string.google_accounts_title))
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (googleAccounts.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.google_no_accounts),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    Text(
-                        text = "Connected Accounts:",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    googleAccounts.forEach { account ->
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF34A853)), // Green active dot
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = account.name,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.google_sync_enabled),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(4.dp))
-
-                Button(
-                    onClick = onSyncNow,
-                    enabled = !isSyncing,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    if (isSyncing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.google_syncing))
-                    } else {
-                        Text(stringResource(R.string.google_sync_now))
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = onSignInWithGoogle,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.google_add_account))
-                }
-
-                TextButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.google_sync_settings))
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.ok))
-            }
-        },
-    )
 }
 
 @Composable
