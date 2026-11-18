@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sumon.calendar.data.LocalCalendarRepository
@@ -45,7 +46,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            CalendarTheme {
+            val themeMode by calendarViewModel.themeMode.collectAsStateWithLifecycle()
+            val colorPalette by calendarViewModel.colorPalette.collectAsStateWithLifecycle()
+
+            CalendarTheme(
+                palette = colorPalette,
+                themeMode = themeMode,
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,

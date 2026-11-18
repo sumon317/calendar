@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.sumon.calendar.data.DeviceCalendar
 import com.sumon.calendar.data.Event
 import com.sumon.calendar.data.LocalCalendarRepository
+import com.sumon.calendar.ui.theme.ColorPalettePreset
+import com.sumon.calendar.ui.theme.ThemeMode
 import java.time.LocalDate
 import java.time.YearMonth
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,6 +30,12 @@ class CalendarViewModel(
     private val hasPermission = MutableStateFlow(repository.hasPermissions())
     private val selectedCalendarId = MutableStateFlow<Long?>(null)
     private val manualRefreshTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    private val _themeMode = MutableStateFlow(repository.getThemeMode())
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    private val _colorPalette = MutableStateFlow(repository.getColorPalette())
+    val colorPalette: StateFlow<ColorPalettePreset> = _colorPalette.asStateFlow()
 
     private val _uiState = MutableStateFlow(
         CalendarUiState(
@@ -168,6 +176,16 @@ class CalendarViewModel(
 
     fun filterByCalendar(calendarId: Long?) {
         selectedCalendarId.value = calendarId
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        repository.setThemeMode(mode)
+        _themeMode.value = mode
+    }
+
+    fun setColorPalette(preset: ColorPalettePreset) {
+        repository.setColorPalette(preset)
+        _colorPalette.value = preset
     }
 
     fun toggleCalendarEnabled(calendarId: Long, isEnabled: Boolean) {

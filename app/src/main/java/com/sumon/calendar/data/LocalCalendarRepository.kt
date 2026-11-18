@@ -16,6 +16,8 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
 import android.provider.Settings
+import com.sumon.calendar.ui.theme.ColorPalettePreset
+import com.sumon.calendar.ui.theme.ThemeMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -218,6 +220,28 @@ class LocalCalendarRepository(private val context: Context) {
         prefs.edit()
             .putStringSet("disabled_calendar_ids", newDisabled)
             .apply()
+    }
+
+    fun getThemeMode(): ThemeMode {
+        val saved = prefs.getString("theme_mode", null) ?: return ThemeMode.SYSTEM
+        return try {
+            ThemeMode.valueOf(saved)
+        } catch (_: IllegalArgumentException) {
+            ThemeMode.SYSTEM
+        }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        prefs.edit().putString("theme_mode", mode.name).apply()
+    }
+
+    fun getColorPalette(): ColorPalettePreset {
+        val saved = prefs.getString("color_palette", null)
+        return ColorPalettePreset.fromNameOrDefault(saved)
+    }
+
+    fun setColorPalette(palette: ColorPalettePreset) {
+        prefs.edit().putString("color_palette", palette.name).apply()
     }
 
     /** Returns all available calendars on the device. */

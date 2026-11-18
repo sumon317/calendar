@@ -72,4 +72,12 @@
     <string name="enable_all_calendars">Enable All Calendars</string>
     <string name="manage_calendars">Manage Calendars…</string>
     <string name="calendar_disabled_tag">Disabled</string>
+    <string name="settings_appearance">Appearance &amp; Themes</string>
+    <string name="settings_appearance_desc">Personalize theme mode and vibrant color palettes.</string>
+    <string name="theme_mode_title">Theme Mode</string>
+    <string name="theme_palette_title">Color Palette</string>
+    <string name="theme_mode_system">System</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
+    <string name="theme_mode_oled">OLED</string>
 </resources>
