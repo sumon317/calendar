@@ -16,7 +16,7 @@ Built with Kotlin and Jetpack Compose (Material 3). Connects directly to the And
 - **Customizable Themes & OLED Mode**: 7 designer color palettes (Material You, Nordic Frost, Catppuccin, Everforest, Tokyo Night, Rosé Pine, Warm Paper) and 4 modes (System, Light, Dark, OLED Pitch Black).
 - **Graceful Permissions**: Clear in-app permission banner and runtime permission handling for `READ_CALENDAR` and `WRITE_CALENDAR`.
 
-Status: v1.1.2-beta released — see the [releases page](https://github.com/sumon317/calendar/releases), [CHANGELOG.md](CHANGELOG.md) and the release runbook in [RELEASING.md](RELEASING.md).
+Status: v1.1.3-beta released — see the [releases page](https://github.com/sumon317/calendar/releases), [CHANGELOG.md](CHANGELOG.md) and the release runbook in [RELEASING.md](RELEASING.md).
 
 ## Development
 

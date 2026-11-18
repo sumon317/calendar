@@ -4,6 +4,14 @@ All notable changes to calendar are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning is
 semver-ish, and every entry corresponds to a GitHub release.
 
+## [1.1.3-beta] — 2026-11-18
+
+### Fixed
+
+- Fixed calendar enable/disable toggles in Settings: resolved coroutine state flow synchronization where `distinctUntilChanged()` suppressed manual refresh emissions, preventing switch state updates.
+- Added optimistic UI updates for instant, lag-free switch toggling.
+- Made entire calendar card surface toggleable with `Modifier.toggleable` and `Role.Switch` for effortless touch and accessibility support.
+
 ## [1.1.2-beta] — 2026-11-18
 
 ### Added
