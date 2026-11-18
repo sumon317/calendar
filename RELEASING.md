@@ -1,6 +1,6 @@
-# Releasing calc
+# Releasing calendar
 
-How calc releases work, and how to cut one. Everything tagged `v*` on `main`
+How calendar releases work, and how to cut one. Everything tagged `v*` on `main`
 is built, gated, signed and published to GitHub Releases by CI — no manual
 build steps, releases are reproducible from any checkout.
 
@@ -16,7 +16,7 @@ Release workflow (.github/workflows/release.yml)
       │  3. ./gradlew :app:assembleRelease  (R8 minify + resource shrink)
       ▼
 GitHub Release published
-       tagged latest, APK attached as calc-v1.2.3.apk,
+       tagged latest, APK attached as calendar-v1.2.3.apk,
        release notes = the annotated tag message
 ```
 
@@ -77,7 +77,7 @@ and lacks update compatibility. Always release with secrets set.
 
    ```bash
    git tag -a v1.1.0 -m "$(cat <<'EOF'
-   calc v1.1.0
+   calendar v1.1.0
 
    ## Features
    - …
@@ -90,7 +90,7 @@ and lacks update compatibility. Always release with secrets set.
    see it happen):
 
    ```bash
-   gh release view v1.1.0          # notes + calc-v1.1.0.apk asset present?
+   gh release view v1.1.0          # notes + calendar-v1.1.0.apk asset present?
    gh release download v1.1.0      # optional: sanity-install the APK
    ```
 

@@ -1,8 +1,25 @@
 # Changelog
 
-All notable changes to calc are documented in this file. The format follows
+All notable changes to calendar are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning is
 semver-ish, and every entry corresponds to a GitHub release.
+
+## [1.1.1-beta] — 2026-11-18
+
+### Added
+
+- Direct integration with Android's system Calendar Provider (`CalendarContract`), replacing isolated Room storage with full two-way device calendar synchronization.
+- Live real-time change detection via `ContentObserver`: changes made in Google Calendar, other calendar apps, or on the web update the app immediately.
+- Google Calendar integration: connect Google accounts via Android system account picker, enable auto-sync, and trigger manual expedited cloud syncs.
+- Calendar picker and filtering: view all calendars at once or filter events by a specific local or Google calendar with color indicators.
+- Comprehensive Add/Edit Event dialog supporting title, description, location, calendar selector, start and end dates/times, all-day toggle, and reminder notifications.
+- In-app permission handling for `READ_CALENDAR` and `WRITE_CALENDAR`.
+
+### Changed
+
+- Renamed app name and launcher label to `calendar`.
+- Migrated namespace and package from `com.sumon.calc` to `com.sumon.calendar`.
+- Removed deprecated Room database and KSP plugin, simplifying dependencies and build toolchain.
 
 ## [1.1.0] — 2026-10-31
 

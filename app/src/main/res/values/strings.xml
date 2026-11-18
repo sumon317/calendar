@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">calc</string>
+    <string name="app_name">calendar</string>
     <string name="previous_month">Previous month</string>
     <string name="next_month">Next month</string>
     <string name="all_day">All day</string>
@@ -18,4 +18,34 @@
     <string name="today">Today</string>
     <string name="select_month">Select month</string>
     <string name="select_year">Select year</string>
+    <string name="permission_title">Calendar Access Needed</string>
+    <string name="permission_message">This app connects directly to your Android device\'s local calendar to view, add, and keep events synced in both directions.</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="refresh">Refresh</string>
+    <string name="all_calendars">All Calendars</string>
+    <string name="calendar_label">Calendar</string>
+    <string name="description_label">Description</string>
+    <string name="location_label">Location</string>
+    <string name="start_date">Start date: %1$s</string>
+    <string name="end_date">End date: %1$s</string>
+    <string name="start_time">Start time</string>
+    <string name="end_time">End time</string>
+    <string name="reminder_label">Reminder</string>
+    <string name="reminder_none">None</string>
+    <string name="reminder_5_min">5 minutes before</string>
+    <string name="reminder_10_min">10 minutes before</string>
+    <string name="reminder_15_min">15 minutes before</string>
+    <string name="reminder_30_min">30 minutes before</string>
+    <string name="reminder_1_hour">1 hour before</string>
+    <string name="reminder_1_day">1 day before</string>
+    <string name="local_calendar_default_name">Local Calendar</string>
+    <string name="google_account">Google Account</string>
+    <string name="google_accounts_title">Google Calendar Sync</string>
+    <string name="google_sync_now">Sync with Google</string>
+    <string name="google_syncing">Syncing...</string>
+    <string name="google_add_account">Sign in with Google</string>
+    <string name="google_no_accounts">No Google account connected. Sign in with Google to sync your events across all devices.</string>
+    <string name="google_sync_enabled">Auto-sync is enabled</string>
+    <string name="google_sync_settings">Open Sync Settings</string>
+    <string name="google_sync_requested">Sync initiated with Google Calendar</string>
 </resources>

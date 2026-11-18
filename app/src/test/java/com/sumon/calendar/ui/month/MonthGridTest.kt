@@ -1,4 +1,4 @@
-package com.sumon.calc.ui.month
+package com.sumon.calendar.ui.month
 
 import java.time.DayOfWeek
 import java.time.LocalDate

@@ -1,4 +1,4 @@
-package com.sumon.calc.ui.month
+package com.sumon.calendar.ui.month
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.sumon.calc.R
+import com.sumon.calendar.R
 import java.time.Month
 import java.time.format.TextStyle
 import java.util.Locale

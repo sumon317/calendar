@@ -1,23 +1,21 @@
-package com.sumon.calc
+package com.sumon.calendar
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.sumon.calc.data.CalcDatabase
-import com.sumon.calc.data.EventRepository
-import com.sumon.calc.ui.month.CalendarViewModel
-import com.sumon.calc.ui.month.MonthScreen
-import com.sumon.calc.ui.theme.CalcTheme
+import com.sumon.calendar.data.LocalCalendarRepository
+import com.sumon.calendar.ui.month.CalendarViewModel
+import com.sumon.calendar.ui.month.MonthScreen
+import com.sumon.calendar.ui.theme.CalendarTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -25,23 +23,30 @@ class MainActivity : ComponentActivity() {
         initializer {
             val app = requireNotNull(this[APPLICATION_KEY]) { "Application must be provided by CreationExtras" }
             CalendarViewModel(
-                repository = EventRepository(dao = CalcDatabase.get(app).eventDao()),
+                repository = LocalCalendarRepository(app.applicationContext),
             )
         }
     }
+
+    private val calendarViewModel: CalendarViewModel by viewModels { appViewModelFactory }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            CalcTheme {
+            CalendarTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    MonthScreen(viewModel(factory = appViewModelFactory))
+                    MonthScreen(calendarViewModel)
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        calendarViewModel.checkPermissions()
     }
 }

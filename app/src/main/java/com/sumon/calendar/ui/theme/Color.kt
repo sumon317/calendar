@@ -1,4 +1,4 @@
-package com.sumon.calc.ui.theme
+package com.sumon.calendar.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

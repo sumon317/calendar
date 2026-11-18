@@ -1,11 +1,21 @@
-# calc
+# calendar
 
-A simple, local-only calendar app for Android.
+A full-fledged, privacy-respecting calendar app for Android connecting directly to your device's local calendar.
 
-Built with Kotlin, Jetpack Compose (Material 3) and Room. Events live on the
-device only — no accounts, no calendar permissions, no sync.
+Built with Kotlin and Jetpack Compose (Material 3). Connects directly to the Android System Calendar Provider (`CalendarContract`), providing seamless two-way live synchronization: changes made in the app are instantly reflected in your device's local calendar (and any other calendar app), and changes made anywhere on the device are immediately reflected here via `ContentObserver`.
 
-Status: v1.0.0 released — see the [releases page](https://github.com/sumon317/calc/releases), [CHANGELOG.md](CHANGELOG.md) and the release runbook in [RELEASING.md](RELEASING.md).
+## Features
+
+- **Full Local Calendar Integration**: Connects directly to Android's built-in `CalendarContract` provider (`ACCOUNT_TYPE_LOCAL` and all device calendars).
+- **Google Calendar Account Integration**: Connect and sign into your Google account directly from the app. Automatically detects connected Google accounts, verifies that calendar synchronization is active, and supports adding new Google accounts via standard Android account flows.
+- **Two-Way Live Sync**: Changes made in this app sync instantly to your Google Calendar and other local calendar apps. Edits, deletions, or events added anywhere (Google Calendar on the web, other devices, or local apps) appear immediately in real time via `ContentObserver`.
+- **Expedited Cloud Sync**: Adding, updating, or deleting an event automatically requests an expedited cloud sync via `ContentResolver.requestSync()` for connected Google accounts, plus a dedicated "Sync Now" action.
+- **Recurring & One-Off Events**: Powered by `CalendarContract.Instances` query expansion so recurring events (birthdays, weekly routines, meetings) render accurately on every month and day.
+- **Rich Event Management**: Create, edit, and delete events with title, description/notes, location, start/end dates and times, all-day toggle, calendar selector (clearly identifying Google vs. local calendars), and reminder alerts.
+- **Calendar Filtering**: Filter by specific calendar or view all calendars at once.
+- **Graceful Permissions**: Clear in-app permission banner and runtime permission handling for `READ_CALENDAR` and `WRITE_CALENDAR`.
+
+Status: v1.1.1-beta released — see the [releases page](https://github.com/sumon317/calendar/releases), [CHANGELOG.md](CHANGELOG.md) and the release runbook in [RELEASING.md](RELEASING.md).
 
 ## Development
 
@@ -23,7 +33,7 @@ signs, and attaches the APK to a GitHub release.
 
 Copyright (C) 2026 sumon317
 
-calc is free software licensed under the **GNU GPL v3** (or any later version
+calendar is free software licensed under the **GNU GPL v3** (or any later version
 of your choice) — see [LICENSE](LICENSE). You may redistribute and modify it
 under those terms; there is no warranty. Copyleft applies: derived versions
 must remain free under the GPL.
