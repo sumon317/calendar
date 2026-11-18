@@ -2,6 +2,7 @@ package com.sumon.calendar.ui.theme
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThemeConfigTest {
@@ -35,5 +36,9 @@ class ThemeConfigTest {
     fun `theme modes has expected 4 options`() {
         val modes = ThemeMode.entries.map { it.name }
         assertEquals(listOf("SYSTEM", "LIGHT", "DARK", "OLED"), modes)
+        ThemeMode.entries.forEach { mode ->
+            assertTrue(mode.titleRes != 0)
+            assertNotNull(mode.displayName)
+        }
     }
 }

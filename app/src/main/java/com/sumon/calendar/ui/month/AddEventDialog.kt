@@ -32,6 +32,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -110,7 +111,7 @@ fun AddEventDialog(
     }
 
     var selectedCalendarId by remember {
-        mutableStateOf(
+        mutableLongStateOf(
             initialEvent?.calendarId?.takeIf { it > 0 }
                 ?: availableCalendars.firstOrNull { it.isPrimary }?.id
                 ?: availableCalendars.firstOrNull()?.id

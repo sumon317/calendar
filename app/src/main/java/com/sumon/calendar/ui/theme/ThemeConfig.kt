@@ -1,12 +1,17 @@
 package com.sumon.calendar.ui.theme
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
+import com.sumon.calendar.R
 
-enum class ThemeMode(val displayName: String) {
-    SYSTEM("System"),
-    LIGHT("Light"),
-    DARK("Dark"),
-    OLED("OLED"),
+enum class ThemeMode(
+    @StringRes val titleRes: Int,
+    val displayName: String,
+) {
+    SYSTEM(R.string.theme_mode_system, "System"),
+    LIGHT(R.string.theme_mode_light, "Light"),
+    DARK(R.string.theme_mode_dark, "Dark"),
+    OLED(R.string.theme_mode_oled, "OLED"),
 }
 
 enum class ColorPalettePreset(

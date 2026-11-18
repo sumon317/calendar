@@ -54,6 +54,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sumon.calendar.BuildConfig
 import com.sumon.calendar.R
 import com.sumon.calendar.data.DeviceCalendar
 import com.sumon.calendar.ui.month.CalendarViewModel
@@ -253,7 +254,7 @@ private fun AppearanceSection(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
-                                    text = mode.displayName,
+                                    text = stringResource(mode.titleRes),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     maxLines = 1,
@@ -744,7 +745,7 @@ private fun AboutSection() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "v1.1.1-beta",
+                    text = "v${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                 )

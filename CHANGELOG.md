@@ -4,6 +4,24 @@ All notable changes to calendar are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning is
 semver-ish, and every entry corresponds to a GitHub release.
 
+## [1.1.2-beta] — 2026-11-18
+
+### Added
+
+- Comprehensive **Appearance & Themes** customization:
+  - 4 Theme Modes: System, Light, Dark, and battery-optimized pitch-black OLED.
+  - 7 aesthetic Color Palettes: Dynamic Material You (Android 12+), Nordic Frost, Catppuccin, Everforest, Tokyo Night, Rosé Pine, and Warm Paper.
+  - Interactive visual swatch previews with live reactive app recomposition.
+  - Persistent theme mode and palette preferences across app restarts.
+- Dedicated **Settings** screen with dedicated sections for Appearance, Google Calendar Sync, Device Calendars, and Permissions.
+- Per-calendar enable/disable switches with bulk "Enable All" and "Disable All" controls.
+
+### Changed
+
+- Replaced hardcoded version labels with dynamic `BuildConfig.VERSION_NAME`.
+- Optimized Compose state primitive allocations in dialogs using `mutableLongStateOf`.
+- Upgraded SharedPreferences updates to idiomatic Android KTX `prefs.edit { ... }`.
+
 ## [1.1.1-beta] — 2026-11-18
 
 ### Added

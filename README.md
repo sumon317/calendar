@@ -12,10 +12,11 @@ Built with Kotlin and Jetpack Compose (Material 3). Connects directly to the And
 - **Expedited Cloud Sync**: Adding, updating, or deleting an event automatically requests an expedited cloud sync via `ContentResolver.requestSync()` for connected Google accounts, plus a dedicated "Sync Now" action.
 - **Recurring & One-Off Events**: Powered by `CalendarContract.Instances` query expansion so recurring events (birthdays, weekly routines, meetings) render accurately on every month and day.
 - **Rich Event Management**: Create, edit, and delete events with title, description/notes, location, start/end dates and times, all-day toggle, calendar selector (clearly identifying Google vs. local calendars), and reminder alerts.
-- **Calendar Filtering**: Filter by specific calendar or view all calendars at once.
+- **Calendar Filtering**: Filter by specific calendar or view all calendars at once. Enable or disable individual calendars.
+- **Customizable Themes & OLED Mode**: 7 designer color palettes (Material You, Nordic Frost, Catppuccin, Everforest, Tokyo Night, Rosé Pine, Warm Paper) and 4 modes (System, Light, Dark, OLED Pitch Black).
 - **Graceful Permissions**: Clear in-app permission banner and runtime permission handling for `READ_CALENDAR` and `WRITE_CALENDAR`.
 
-Status: v1.1.1-beta released — see the [releases page](https://github.com/sumon317/calendar/releases), [CHANGELOG.md](CHANGELOG.md) and the release runbook in [RELEASING.md](RELEASING.md).
+Status: v1.1.2-beta released — see the [releases page](https://github.com/sumon317/calendar/releases), [CHANGELOG.md](CHANGELOG.md) and the release runbook in [RELEASING.md](RELEASING.md).
 
 ## Development
 
