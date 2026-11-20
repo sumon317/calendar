@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -79,38 +80,43 @@ fun AgendaScreen(
         map
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        dayMap.forEach { (date, events) ->
-            item(key = "header-$date") {
-                AgendaDayHeader(
-                    date = date,
-                    today = today,
-                    onClick = { onDayClick(date) },
-                )
-            }
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isCompact = maxWidth < 360.dp
 
-            if (events.isEmpty()) {
-                item(key = "empty-$date") {
-                    AgendaEmptyDayRow(
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = if (isCompact) 8.dp else 16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            dayMap.forEach { (date, events) ->
+                item(key = "header-$date") {
+                    AgendaDayHeader(
+                        date = date,
+                        today = today,
                         onClick = { onDayClick(date) },
                     )
                 }
-            } else {
-                items(events, key = { "${it.eventId}-${it.startEpochMillis}" }) { event ->
-                    AgendaEventRow(
-                        event = event,
-                        onClick = { onEventClick(event) },
-                    )
-                }
-            }
 
-            item(key = "spacer-$date") {
-                Spacer(Modifier.height(8.dp))
+                if (events.isEmpty()) {
+                    item(key = "empty-$date") {
+                        AgendaEmptyDayRow(
+                            onClick = { onDayClick(date) },
+                        )
+                    }
+                } else {
+                    items(events, key = { "${it.eventId}-${it.startEpochMillis}" }) { event ->
+                        AgendaEventRow(
+                            event = event,
+                            isCompact = isCompact,
+                            onClick = { onEventClick(event) },
+                        )
+                    }
+                }
+
+                item(key = "spacer-$date") {
+                    Spacer(Modifier.height(8.dp))
+                }
             }
         }
     }
@@ -186,6 +192,7 @@ private fun AgendaEmptyDayRow(onClick: () -> Unit) {
 @Composable
 private fun AgendaEventRow(
     event: EventInstance,
+    isCompact: Boolean = false,
     onClick: () -> Unit,
 ) {
     val zone = remember { ZoneId.systemDefault() }
@@ -209,9 +216,9 @@ private fun AgendaEventRow(
             .clickable(onClick = onClick),
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(if (isCompact) 10.dp else 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (isCompact) 10.dp else 14.dp),
         ) {
             Box(
                 modifier = Modifier

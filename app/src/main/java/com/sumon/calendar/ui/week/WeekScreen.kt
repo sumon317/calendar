@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -113,169 +114,192 @@ fun WeekScreen(
 
     val monthYearFormatter = remember { DateTimeFormatter.ofPattern("MMM yyyy", Locale.getDefault()) }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // Week Navigation Header
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onPreviousWeek) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous Week")
-                }
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable(onClick = onToday),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = "${weekDays.first().dayOfMonth} – ${weekDays.last().dayOfMonth} ${monthYearFormatter.format(weekDays.first())}",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    )
-                }
-                IconButton(onClick = onNextWeek) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next Week")
-                }
-            }
-        }
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isCompact = maxWidth < 380.dp
+        val rulerWidth = if (isCompact) 36.dp else 44.dp
+        val dayCircleSize = if (isCompact) 24.dp else 28.dp
 
-        // Weekday Strip Columns Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Spacer for ruler width
-            Spacer(Modifier.width(44.dp))
-
-            weekDays.forEach { date ->
-                val isToday = (date == today)
-                val isSelected = (date == selectedDate)
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onSelectDay(date) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = date.dayOfWeek.name.take(3),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Surface(
-                        shape = CircleShape,
-                        color = if (isToday) MaterialTheme.colorScheme.primary else if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = date.dayOfMonth.toString(),
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
-                                ),
-                                color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
-
-        // All Day Events Row
-        if (allDayWeekEvents.isNotEmpty()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Week Navigation Header
             Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                        .padding(horizontal = if (isCompact) 4.dp else 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = "ALL\nDAY",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.width(44.dp),
-                        textAlign = TextAlign.Center,
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        allDayWeekEvents.forEach { event ->
-                            Card(
-                                shape = RoundedCornerShape(4.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(event.color).copy(alpha = 0.3f)),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 1.dp)
-                                    .clickable { onEventClick(event) },
-                            ) {
-                                Text(
-                                    text = event.title.ifBlank { "(Untitled Event)" },
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            HorizontalDivider()
-        }
-
-        // 24-Hour Vertical Grid
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState),
-        ) {
-            // Horizontal hour dividers and hour labels
-            Column(modifier = Modifier.fillMaxWidth()) {
-                for (hour in 0..23) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(HOUR_HEIGHT),
+                    IconButton(
+                        onClick = onPreviousWeek,
+                        modifier = if (isCompact) Modifier.size(36.dp) else Modifier.size(44.dp),
                     ) {
-                        Row(modifier = Modifier.fillMaxSize()) {
-                            Text(
-                                text = String.format(Locale.getDefault(), "%02d:00", hour),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                modifier = Modifier
-                                    .width(44.dp)
-                                    .padding(start = 6.dp, top = 2.dp),
-                            )
-                            Box(modifier = Modifier.weight(1f)) {
-                                HorizontalDivider(
-                                    color = DividerDefaults.color.copy(alpha = 0.25f),
-                                    modifier = Modifier.align(Alignment.TopStart),
-                                )
-                            }
-                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Previous Week",
+                            modifier = if (isCompact) Modifier.size(20.dp) else Modifier.size(24.dp),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(onClick = onToday),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = "${weekDays.first().dayOfMonth} – ${weekDays.last().dayOfMonth} ${monthYearFormatter.format(weekDays.first())}",
+                            style = if (isCompact) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    IconButton(
+                        onClick = onNextWeek,
+                        modifier = if (isCompact) Modifier.size(36.dp) else Modifier.size(44.dp),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Next Week",
+                            modifier = if (isCompact) Modifier.size(20.dp) else Modifier.size(24.dp),
+                        )
                     }
                 }
             }
 
-            // 7 Day Columns
+            // Weekday Strip Columns Header
             Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 44.dp),
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                // Spacer for ruler width
+                Spacer(Modifier.width(rulerWidth))
+
+                weekDays.forEach { date ->
+                    val isToday = (date == today)
+                    val isSelected = (date == selectedDate)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onSelectDay(date) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = date.dayOfWeek.name.take(3),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = if (isCompact) 9.sp else 11.sp),
+                            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isToday) MaterialTheme.colorScheme.primary else if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                            modifier = Modifier.size(dayCircleSize),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = date.dayOfMonth.toString(),
+                                    style = (if (isCompact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium).copy(
+                                        fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    ),
+                                    color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
+
+            // All Day Events Row
+            if (allDayWeekEvents.isNotEmpty()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = "ALL\nDAY",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = if (isCompact) 8.sp else 9.sp, lineHeight = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.width(rulerWidth),
+                            textAlign = TextAlign.Center,
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            allDayWeekEvents.forEach { event ->
+                                Card(
+                                    shape = RoundedCornerShape(4.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(event.color).copy(alpha = 0.3f)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 1.dp)
+                                        .clickable { onEventClick(event) },
+                                ) {
+                                    Text(
+                                        text = event.title.ifBlank { "(Untitled Event)" },
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider()
+            }
+
+            // 24-Hour Vertical Grid
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState),
+            ) {
+                // Horizontal hour dividers and hour labels
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    for (hour in 0..23) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(HOUR_HEIGHT),
+                        ) {
+                            Row(modifier = Modifier.fillMaxSize()) {
+                                Text(
+                                    text = String.format(Locale.getDefault(), "%02d:00", hour),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = if (isCompact) 9.sp else 10.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                    modifier = Modifier
+                                        .width(rulerWidth)
+                                        .padding(start = if (isCompact) 2.dp else 6.dp, top = 2.dp),
+                                )
+                                Box(modifier = Modifier.weight(1f)) {
+                                    HorizontalDivider(
+                                        color = DividerDefaults.color.copy(alpha = 0.25f),
+                                        modifier = Modifier.align(Alignment.TopStart),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 7 Day Columns
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = rulerWidth),
+                ) {
                 weekDays.forEach { dayDate ->
                     val isDayToday = (dayDate == today)
 
@@ -376,4 +400,5 @@ fun WeekScreen(
             }
         }
     }
+}
 }

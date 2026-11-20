@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -72,6 +73,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sumon.calendar.R
 import com.sumon.calendar.data.DeviceCalendar
@@ -116,7 +118,26 @@ fun MonthScreen(
     val weekStart = remember { WeekFields.of(Locale.getDefault()).firstDayOfWeek }
     val cells = remember(state.month, weekStart) { buildMonthCells(state.month, weekStart) }
     val weekdayNames = remember(weekStart) { weekdayLabels(weekStart, Locale.getDefault()) }
-    val eventDays = remember(state.monthEvents) { state.monthEvents.map { it.startDate }.toSet() }
+    val eventColorsByDay = remember(state.monthEvents) {
+        val map = mutableMapOf<LocalDate, MutableList<Int>>()
+        state.monthEvents.forEach { event ->
+            val color = if (event.color != null && event.color != 0) event.color else 0xFF4285F4.toInt()
+            val start = event.startDate
+            val effectiveEndDate = if (!event.isAllDay && event.endTime == LocalTime.MIN && event.endDate.isAfter(event.startDate)) {
+                event.endDate.minusDays(1)
+            } else {
+                event.endDate
+            }
+            val end = if (effectiveEndDate.isBefore(start)) start else effectiveEndDate
+            val cappedEnd = if (start.plusDays(90).isBefore(end)) start.plusDays(90) else end
+            var curr = start
+            while (!curr.isAfter(cappedEnd)) {
+                map.getOrPut(curr) { mutableListOf() }.add(color)
+                curr = curr.plusDays(1)
+            }
+        }
+        map
+    }
     val dateFormatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
     val timeFormatter = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT) }
     val context = LocalContext.current
@@ -265,7 +286,7 @@ fun MonthScreen(
                         cells = cells,
                         selectedDay = state.selectedDay,
                         today = today,
-                        eventDays = eventDays,
+                        eventColorsByDay = eventColorsByDay,
                         onSelectDay = viewModel::select,
                     )
 
@@ -394,137 +415,144 @@ private fun TopCalendarBar(
     val enabledCalendars = remember(calendars) { calendars.filter { it.isEnabled } }
     val disabledCalendars = remember(calendars) { calendars.filterNot { it.isEnabled } }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val isCompact = maxWidth < 380.dp
+        val isVeryNarrow = maxWidth < 330.dp
+
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = if (isCompact) 4.dp else 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            // View Mode Dropdown
-            Box {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.clickable { showViewDropdown = true },
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            Row(
+                modifier = Modifier.weight(1f, fill = false),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(if (isCompact) 4.dp else 6.dp),
+            ) {
+                // View Mode Dropdown
+                Box {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.clickable { showViewDropdown = true },
                     ) {
-                        val modeIcon = when (currentViewMode) {
-                            CalendarViewMode.Month -> Icons.Default.ViewModule
-                            CalendarViewMode.Week -> Icons.Default.ViewWeek
-                            CalendarViewMode.Day -> Icons.Default.ViewDay
-                            CalendarViewMode.Agenda -> Icons.Default.ViewAgenda
-                        }
-                        Icon(
-                            imageVector = modeIcon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Text(
-                            text = currentViewMode.label,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        Icon(
-                            imageVector = Icons.Filled.ArrowDropDown,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = showViewDropdown,
-                    onDismissRequest = { showViewDropdown = false },
-                ) {
-                    CalendarViewMode.entries.forEach { mode ->
-                        val itemIcon = when (mode) {
-                            CalendarViewMode.Month -> Icons.Default.ViewModule
-                            CalendarViewMode.Week -> Icons.Default.ViewWeek
-                            CalendarViewMode.Day -> Icons.Default.ViewDay
-                            CalendarViewMode.Agenda -> Icons.Default.ViewAgenda
-                        }
-                        DropdownMenuItem(
-                            leadingIcon = {
-                                Icon(itemIcon, contentDescription = null, modifier = Modifier.size(18.dp))
-                            },
-                            text = {
+                        Row(
+                            modifier = Modifier.padding(
+                                horizontal = if (isCompact) 8.dp else 10.dp,
+                                vertical = 6.dp,
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            val modeIcon = when (currentViewMode) {
+                                CalendarViewMode.Month -> Icons.Default.ViewModule
+                                CalendarViewMode.Week -> Icons.Default.ViewWeek
+                                CalendarViewMode.Day -> Icons.Default.ViewDay
+                                CalendarViewMode.Agenda -> Icons.Default.ViewAgenda
+                            }
+                            Icon(
+                                imageVector = modeIcon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            if (!isVeryNarrow) {
                                 Text(
-                                    text = mode.label,
-                                    fontWeight = if (mode == currentViewMode) FontWeight.Bold else FontWeight.Normal,
+                                    text = currentViewMode.label,
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
-                            },
-                            onClick = {
-                                onSelectViewMode(mode)
-                                showViewDropdown = false
-                            },
-                        )
+                            }
+                            Icon(
+                                imageVector = Icons.Filled.ArrowDropDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
                     }
-                }
-            }
 
-            // Calendar selection dropdown
-            Box {
-                val selectedCalendar = calendars.firstOrNull { it.id == selectedCalendarId }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.clickable { showDropdown = true },
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    DropdownMenu(
+                        expanded = showViewDropdown,
+                        onDismissRequest = { showViewDropdown = false },
                     ) {
-                        if (selectedCalendar != null && selectedCalendar.color != 0) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(selectedCalendar.color)),
+                        CalendarViewMode.entries.forEach { mode ->
+                            val itemIcon = when (mode) {
+                                CalendarViewMode.Month -> Icons.Default.ViewModule
+                                CalendarViewMode.Week -> Icons.Default.ViewWeek
+                                CalendarViewMode.Day -> Icons.Default.ViewDay
+                                CalendarViewMode.Agenda -> Icons.Default.ViewAgenda
+                            }
+                            DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(itemIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                                },
+                                text = {
+                                    Text(
+                                        text = mode.label,
+                                        fontWeight = if (mode == currentViewMode) FontWeight.Bold else FontWeight.Normal,
+                                    )
+                                },
+                                onClick = {
+                                    onSelectViewMode(mode)
+                                    showViewDropdown = false
+                                },
                             )
                         }
-                        val labelText = when {
-                            selectedCalendar != null -> selectedCalendar.displayName
-                            calendars.isEmpty() -> stringResource(R.string.all_calendars)
-                            disabledCalendars.isNotEmpty() -> stringResource(
-                                R.string.calendars_enabled_count,
-                                enabledCalendars.size,
-                                calendars.size,
-                            )
-                            else -> stringResource(R.string.all_calendars)
-                        }
-                        Text(
-                            text = labelText,
-                            style = MaterialTheme.typography.labelMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Icon(
-                            imageVector = Icons.Filled.ArrowDropDown,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
                     }
                 }
 
-                DropdownMenu(
-                    expanded = showDropdown,
-                    onDismissRequest = { showDropdown = false },
-                ) {
-                    DropdownMenuItem(
-                        text = {
-                            Column {
+                // Calendar selection dropdown
+                Box(modifier = Modifier.weight(1f, fill = false)) {
+                    val selectedCalendar = calendars.firstOrNull { it.id == selectedCalendarId }
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.clickable { showDropdown = true },
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(
+                                horizontal = if (isCompact) 8.dp else 10.dp,
+                                vertical = 6.dp,
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            if (selectedCalendar != null && selectedCalendar.color != 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(selectedCalendar.color)),
+                                )
+                            }
+                            val labelText = when {
+                                selectedCalendar != null -> selectedCalendar.displayName
+                                else -> stringResource(R.string.all_calendars)
+                            }
+                            Text(
+                                text = labelText,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Icon(
+                                imageVector = Icons.Filled.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = showDropdown,
+                        onDismissRequest = { showDropdown = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = {
                                 Text(
                                     text = if (disabledCalendars.isNotEmpty()) {
                                         stringResource(R.string.all_enabled_calendars)
@@ -533,68 +561,18 @@ private fun TopCalendarBar(
                                     },
                                     fontWeight = if (selectedCalendarId == null) FontWeight.Bold else FontWeight.Normal,
                                 )
-                                if (disabledCalendars.isNotEmpty()) {
-                                    Text(
-                                        text = "${enabledCalendars.size} of ${calendars.size} active",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        },
-                        onClick = {
-                            onSelectCalendar(null)
-                            showDropdown = false
-                        },
-                    )
-
-                    if (calendars.isNotEmpty()) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    }
-
-                    enabledCalendars.forEach { cal ->
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (cal.color != 0) Color(cal.color)
-                                                else MaterialTheme.colorScheme.primary,
-                                            ),
-                                    )
-                                    Column {
-                                        val isGoogle = cal.accountType == "com.google"
-                                        Text(
-                                            text = "${cal.displayName}${if (isGoogle) " (Google)" else ""}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (cal.id == selectedCalendarId) FontWeight.Bold else FontWeight.Normal,
-                                        )
-                                        if (cal.accountName.isNotBlank()) {
-                                            Text(
-                                                text = cal.accountName,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    }
-                                }
                             },
                             onClick = {
-                                onSelectCalendar(cal.id)
+                                onSelectCalendar(null)
                                 showDropdown = false
                             },
                         )
-                    }
 
-                    if (disabledCalendars.isNotEmpty()) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                        disabledCalendars.forEach { cal ->
+                        if (calendars.isNotEmpty()) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        }
+
+                        enabledCalendars.forEach { cal ->
                             DropdownMenuItem(
                                 text = {
                                     Row(
@@ -606,21 +584,22 @@ private fun TopCalendarBar(
                                                 .size(10.dp)
                                                 .clip(CircleShape)
                                                 .background(
-                                                    (if (cal.color != 0) Color(cal.color) else MaterialTheme.colorScheme.primary)
-                                                        .copy(alpha = 0.4f),
+                                                    if (cal.color != 0) Color(cal.color)
+                                                    else MaterialTheme.colorScheme.primary,
                                                 ),
                                         )
                                         Column {
+                                            val isGoogle = cal.accountType == "com.google"
                                             Text(
-                                                text = "${cal.displayName} (${stringResource(R.string.calendar_disabled_tag)})",
+                                                text = "${cal.displayName}${if (isGoogle) " (Google)" else ""}",
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                fontWeight = if (cal.id == selectedCalendarId) FontWeight.Bold else FontWeight.Normal,
                                             )
                                             if (cal.accountName.isNotBlank()) {
                                                 Text(
                                                     text = cal.accountName,
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
                                             }
                                         }
@@ -632,74 +611,128 @@ private fun TopCalendarBar(
                                 },
                             )
                         }
-                    }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Settings,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                                Text(
-                                    text = stringResource(R.string.manage_calendars),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Medium,
+                        if (disabledCalendars.isNotEmpty()) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                            disabledCalendars.forEach { cal ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(10.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        (if (cal.color != 0) Color(cal.color) else MaterialTheme.colorScheme.primary)
+                                                            .copy(alpha = 0.4f),
+                                                    ),
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = "${cal.displayName} (${stringResource(R.string.calendar_disabled_tag)})",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                )
+                                                if (cal.accountName.isNotBlank()) {
+                                                    Text(
+                                                        text = cal.accountName,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        onSelectCalendar(cal.id)
+                                        showDropdown = false
+                                    },
                                 )
                             }
-                        },
-                        onClick = {
-                            showDropdown = false
-                            onOpenSettings()
-                        },
-                    )
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        DropdownMenuItem(
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Settings,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.manage_calendars),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                }
+                            },
+                            onClick = {
+                                showDropdown = false
+                                onOpenSettings()
+                            },
+                        )
+                    }
                 }
             }
-        }
 
-        // Action buttons: Search, Refresh and Settings
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            IconButton(onClick = onOpenSearch) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
+            // Action buttons: Search, Refresh and Settings
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(if (isCompact) 0.dp else 2.dp),
+            ) {
+                IconButton(
+                    onClick = onOpenSearch,
+                    modifier = if (isCompact) Modifier.size(36.dp) else Modifier.size(44.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        modifier = if (isCompact) Modifier.size(18.dp) else Modifier.size(24.dp),
+                    )
+                }
+
+                val infiniteTransition = rememberInfiniteTransition(label = "refreshSpin")
+                val rotation by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 360f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1000, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart,
+                    ),
+                    label = "rotation",
                 )
-            }
 
-            val infiniteTransition = rememberInfiniteTransition(label = "refreshSpin")
-            val rotation by infiniteTransition.animateFloat(
-                initialValue = 0f,
-                targetValue = 360f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(1000, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
-                label = "rotation",
-            )
+                IconButton(
+                    onClick = onRefresh,
+                    modifier = if (isCompact) Modifier.size(36.dp) else Modifier.size(44.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = stringResource(R.string.refresh),
+                        modifier = (if (isCompact) Modifier.size(18.dp) else Modifier.size(24.dp))
+                            .then(if (isSyncing) Modifier.rotate(rotation) else Modifier),
+                    )
+                }
 
-            IconButton(onClick = onRefresh) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = stringResource(R.string.refresh),
-                    modifier = if (isSyncing) Modifier.rotate(rotation) else Modifier,
-                )
-            }
-
-            IconButton(onClick = onOpenSettings) {
-                Icon(
-                    imageVector = Icons.Filled.Settings,
-                    contentDescription = stringResource(R.string.settings),
-                )
+                IconButton(
+                    onClick = onOpenSettings,
+                    modifier = if (isCompact) Modifier.size(36.dp) else Modifier.size(44.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = stringResource(R.string.settings),
+                        modifier = if (isCompact) Modifier.size(18.dp) else Modifier.size(24.dp),
+                    )
+                }
             }
         }
     }
@@ -713,66 +746,87 @@ private fun MonthHeader(
     onSelectMonth: () -> Unit,
     onSelectYear: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        IconButton(onClick = onPrevious) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = stringResource(R.string.previous_month),
-            )
-        }
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val isCompact = maxWidth < 360.dp
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = if (isCompact) 4.dp else 8.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color.Transparent,
-                modifier = Modifier.clickable(onClick = onSelectMonth),
+            IconButton(
+                onClick = onPrevious,
+                modifier = if (isCompact) Modifier.size(36.dp) else Modifier.size(44.dp),
             ) {
-                Text(
-                    text = month.month.getDisplayName(TextStyle.FULL, Locale.getDefault()),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = stringResource(R.string.previous_month),
+                    modifier = if (isCompact) Modifier.size(20.dp) else Modifier.size(24.dp),
                 )
             }
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color.Transparent,
-                modifier = Modifier.clickable(onClick = onSelectYear),
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text(
-                    text = month.year.toString(),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier.clickable(onClick = onSelectMonth),
+                ) {
+                    Text(
+                        text = month.month.getDisplayName(TextStyle.FULL, Locale.getDefault()),
+                        style = if (isCompact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier.clickable(onClick = onSelectYear),
+                ) {
+                    Text(
+                        text = month.year.toString(),
+                        style = if (isCompact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    )
+                }
+            }
+            IconButton(
+                onClick = onNext,
+                modifier = if (isCompact) Modifier.size(36.dp) else Modifier.size(44.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.next_month),
+                    modifier = if (isCompact) Modifier.size(20.dp) else Modifier.size(24.dp),
                 )
             }
-        }
-        IconButton(onClick = onNext) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = stringResource(R.string.next_month),
-            )
         }
     }
 }
 
 @Composable
 private fun WeekdayLabelRow(labels: List<String>) {
-    Row(modifier = Modifier.fillMaxWidth()) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+    ) {
         labels.forEach { label ->
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -802,12 +856,16 @@ private fun DaySection(
                 text = date.format(dateFormatter),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
             )
             if (events.isNotEmpty()) {
                 Text(
                     text = "${events.size} event${if (events.size > 1) "s" else ""}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp),
                 )
             }
         }
@@ -892,18 +950,21 @@ private fun EventCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = event.title,
+                        text = event.title.ifBlank { "(Untitled Event)" },
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                     event.calendarName?.let { calName ->
                         Text(
                             text = calName,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = 6.dp),
                         )
                     }
                 }

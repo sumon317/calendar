@@ -62,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.sumon.calendar.data.DeviceCalendar
@@ -330,14 +331,22 @@ fun EventEditScreen(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                     ) {
-                        Text(dateFormatter.format(startDate))
+                        Text(
+                            text = dateFormatter.format(startDate),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     if (!isAllDay) {
                         OutlinedButton(
                             onClick = { showStartTimePicker = true },
                             shape = RoundedCornerShape(10.dp),
                         ) {
-                            Text(timeFormatter.format(startTime))
+                            Text(
+                                text = timeFormatter.format(startTime),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
                 }
@@ -353,14 +362,22 @@ fun EventEditScreen(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                     ) {
-                        Text(dateFormatter.format(endDate))
+                        Text(
+                            text = dateFormatter.format(endDate),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     if (!isAllDay) {
                         OutlinedButton(
                             onClick = { showEndTimePicker = true },
                             shape = RoundedCornerShape(10.dp),
                         ) {
-                            Text(timeFormatter.format(endTime))
+                            Text(
+                                text = timeFormatter.format(endTime),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
                 }

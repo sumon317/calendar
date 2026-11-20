@@ -45,4 +45,34 @@ class MonthGridTest {
         assertEquals(35, padded.size)
         assertEquals(0, padded.size % 7)
     }
+
+    @Test
+    fun `event colors mapping retains distinct colors and exact counts per day`() {
+        val date1 = LocalDate.of(2026, 10, 15)
+        val date2 = LocalDate.of(2026, 10, 16)
+        val workColor = 0xFF4CAF50.toInt() // Green
+        val personalColor = 0xFF2196F3.toInt() // Blue
+        val familyColor = 0xFFFF9800.toInt() // Orange
+
+        val events = listOf(
+            com.sumon.calendar.data.Event(id = 1, title = "Team Standup", startDate = date1, color = workColor),
+            com.sumon.calendar.data.Event(id = 2, title = "Dentist", startDate = date1, color = personalColor),
+            com.sumon.calendar.data.Event(id = 3, title = "Dinner with Family", startDate = date1, color = familyColor),
+            com.sumon.calendar.data.Event(id = 4, title = "Work Review", startDate = date2, color = workColor),
+        )
+
+        val map = mutableMapOf<LocalDate, MutableList<Int>>()
+        events.forEach { event ->
+            val color = if (event.color != null && event.color != 0) event.color else 0xFF4285F4.toInt()
+            map.getOrPut(event.startDate) { mutableListOf() }.add(color)
+        }
+
+        // date1 has exactly 3 events with 3 distinct colors
+        assertEquals(3, map[date1]?.size)
+        assertEquals(listOf(workColor, personalColor, familyColor), map[date1])
+
+        // date2 has exactly 1 event with workColor
+        assertEquals(1, map[date2]?.size)
+        assertEquals(listOf(workColor), map[date2])
+    }
 }
