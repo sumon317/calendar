@@ -70,8 +70,11 @@ jobs:
           notes="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")"
           is_prerelease="false"
           case "$GITHUB_REF_NAME" in
-            *-beta*|*-alpha*|*-rc*|*beta*|*alpha*|*rc*) is_prerelease="true" ;;
+            *-beta*|*-alpha*|*-rc*|*beta*|*alpha*|*rc*|*-pre*|*pre*) is_prerelease="true" ;;
           esac
+          if echo "$notes" | grep -qiE "pre-release|prerelease"; then
+            is_prerelease="true"
+          fi
 
           if [ "$is_prerelease" = "true" ]; then
             gh release create "$GITHUB_REF_NAME" "$APK_NAME" \
